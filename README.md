@@ -1,10 +1,6 @@
-# SuperGrad Project
+# SuperGrad Differentiable Hamiltonian Simulator
 
-Driven by the recognition of the increasingly pivotal role of quantum computing, the <strong>SuperGrad</strong> project endeavours to provide a foundational infrastructure. Our modest goal is to support the creation and continuous refinement of digital quantum computers. We strive to offer a platform that nurtures creativity and subtly contributes to the onward journey of quantum computing technology advancement.
-
-## SuperGrad Differentiable Hamiltonian Simulator
-
-This repository serves as a differentiable Hamiltonian simulator, primarily designed for superconducting quantum processors. However, it has the potential to be expanded to accommodate other physical platforms. Its key feature lies in its ability to compute gradients with respect to objective functions, such as gate fidelity or functions that approximate logical error rates. The motivation behind gradient computation is rooted in the fact that superconducting processors often consist of numerous qubits, resulting in a rapid increase in the total number of optimizable parameters. Consequently, when optimizing the parameters of a quantum system or fitting them to experimental data, leveraging gradients can significantly accelerate these tasks.
+This repository serves as a differentiable Hamiltonian simulator, primarily designed for superconducting quantum processors (hence the abbreviation <strong>SuperGrad</strong>). However, it has the potential to be expanded to accommodate other physical platforms. Its key feature lies in its ability to compute gradients with respect to objective functions, such as gate fidelity or functions that approximate logical error rates. The motivation behind gradient computation is rooted in the fact that superconducting processors often consist of numerous qubits, resulting in a rapid increase in the total number of optimizable parameters. Consequently, when optimizing the parameters of a quantum system or fitting them to experimental data, leveraging gradients can significantly accelerate these tasks.
 
 ## Installation
 
