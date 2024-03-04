@@ -1,4 +1,4 @@
-# SuperGrad Differentiable Hamiltonian Simulator
+# SuperGrad: Differentiable Simulator for superconducting quantum processors
 
 This repository serves as a differentiable Hamiltonian simulator, primarily designed for superconducting quantum processors (hence the abbreviation <strong>SuperGrad</strong>). However, it has the potential to be expanded to accommodate other physical platforms. Its key feature lies in its ability to compute gradients with respect to objective functions, such as gate fidelity or functions that approximate logical error rates. The motivation behind gradient computation is rooted in the fact that superconducting processors often consist of numerous qubits, resulting in a rapid increase in the total number of optimizable parameters. Consequently, when optimizing the parameters of a quantum system or fitting them to experimental data, leveraging gradients can significantly accelerate these tasks.
 
