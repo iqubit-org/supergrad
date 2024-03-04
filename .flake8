@@ -12,6 +12,8 @@ ignore = W605,
     # line break before binary operator
     W504,
     # line break after binary operator
+    F401,
+    # imported but unused
 
 exclude =
     .git,

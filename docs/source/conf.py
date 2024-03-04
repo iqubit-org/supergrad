@@ -23,8 +23,10 @@ project = 'SuperGrad'
 copyright = '2022, AQL'
 author = 'AQL'
 
+# The short X.Y version
+version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+release = ''
 
 
 # -- General configuration ---------------------------------------------------
