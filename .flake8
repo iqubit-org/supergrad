@@ -1,0 +1,33 @@
+[flake8]
+ignore = W605,
+    C901,
+    #is too complex
+    E741,
+    # ambiguous variable name
+    E124,
+    # closing bracket does not match visual indentation
+    E402,
+    # module level import not at top of file
+    W503,
+    # line break before binary operator
+    W504,
+    # line break after binary operator
+    F401,
+    # imported but unused
+    E722,
+    # do not use bare 'except'
+
+exclude =
+    .git,
+    __pycache__,
+    build,
+    build_dir,
+    script,
+    lint_env,
+    dist,
+    examples/not_maintained,
+    zenodo,
+    debug
+
+max-complexity = 15
+max-line-length = 127
