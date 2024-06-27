@@ -1,22 +1,8 @@
 # SuperGrad: Differentiable Simulator for superconducting quantum processors
-<p align="center">
-  <!-- tests (GitHub actions) -->
-  <a href="https://github.com/iqubit-org/supergrad/actions/workflows/python-publish.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/iqubit-org/supergrad/python-publish.yml" />
-  </a>
-  <!-- docs -->
-  <a href="https://supergrad.readthedocs.io/">
-    <img src="https://img.shields.io/badge/docs-link-green.svg?logo=read-the-docs"/>
-  </a>
-  <!-- PyPI -->
-  <a href="https://pypi.org/project/supergrad/">
-    <img src="https://img.shields.io/pypi/v/supergrad.svg?logo=pypi"/>
-  </a>
-  <!-- License -->
-  <a href="./LICENSE">
-    <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=apache"/>
-  </a>
-</p>
+[![GitHub actions](https://img.shields.io/github/actions/workflow/status/iqubit-org/supergrad/python-publish.yml)](https://github.com/iqubit-org/supergrad/actions/workflows/python-publish.yml)
+[![Docs](https://img.shields.io/badge/docs-link-green.svg?logo=read-the-docs)](https://supergrad.readthedocs.io/)
+[![PyPI](https://img.shields.io/pypi/v/supergrad.svg?logo=pypi)](https://pypi.org/project/supergrad/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=apache)](https://github.com/iqubit-org/supergrad/blob/main/LICENSE)
 
 SuperGrad is an open-source simulator designed to accelerate the development of superconducting quantum processors by incorporating gradient computation capabilities.
 
@@ -59,11 +45,11 @@ H_{\mathrm{idle}}\left(\vec{h}\right)+\sum_{k=1}^{N_c}f_{k}\left(\vec{c},t\right
 ```
 
 The parameters about only a single qubit are stored in the nodes of the graph.
-These include parameters of superconducting qubits such as $`E_C`$, $`E_J`$, and parameters $`\vec{c}`$ of control pulses.
-The couplings of qubits are stored in the edges between qubits, which is a subset of $`\vec{h}`$.
-Then, some Helper classes will parse the graph, and create functions $`f(\vec{h},\vec{c})`$ which compute time-evolution unitary $`U(\vec{h},\vec{c})`$ or the energy spectrum of $`H_{\mathrm{idle}}(\vec{h})`$.
+These include parameters of superconducting qubits such as $E_C$, $E_J$, and parameters $\vec{c}$ of control pulses.
+The couplings of qubits are stored in the edges between qubits, which is a subset of $\vec{h}$.
+Then, some Helper classes will parse the graph, and create functions $f(\vec{h},\vec{c})$ which compute time-evolution unitary $U(\vec{h},\vec{c})$ or the energy spectrum of $H_{\mathrm{idle}}(\vec{h})$.
 One can construct objective functions based on these results.
-Jax can then be used to compute the gradient of an objective function and use it to run gradient optimization.
+JAX can then be used to compute the gradient of an objective function and use it to run gradient optimization.
 
 In general, we will use GHz and ns as units for energy and time parameters.
 
@@ -93,7 +79,7 @@ H_{ij} = J_{\mathrm{C}} n_i n_j - J_{\mathrm{L}} \varphi_i \varphi_j
 The couplings are chosen in a way such that the idling $`ZZ`$-crosstalk is almost zero.
 We compute the time-evolution and the Pauli error rates for
 simultaneous single-qubit X gates and two-qubit CR gates.
-More details can be found in a future paper.
+More details can be found in [Ni, X. et al. Superconducting processor design optimization for quantum error correction performance. arXiv:2312.04186](https://arxiv.org/pdf/2312.04186).
 
 ### Transmon with tunable couplers
 
@@ -109,13 +95,13 @@ Here we try to infer the parameters of the system from spectrum data from experi
 We will consider the simplest case which is fitting the parameters of one Fluxonium.
 But the procedure can be applied to more complex systems as well.
 
-### Citation
+## Citation
 
 If this project is helpful to you in your research, the use of SuperGrad in research publications is appropriately acknowledged by citing:
 
 ```
 @misc{supergrad_2024,
-      title={SuperGrad: a differentiable simulator for superconducting processors}, 
+      title={SuperGrad: a differentiable simulator for superconducting processors},
       author={Ziang Wang and Feng Wu and Hui-Hai Zhao and Xin Wan and Xiaotong Ni},
       year={2024},
       eprint={2406.18155},
