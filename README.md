@@ -116,7 +116,7 @@ If this project is helpful to you in your research, the use of SuperGrad in rese
       title={SuperGrad: a differentiable simulator for superconducting processors}, 
       author={Ziang Wang and Feng Wu and Hui-Hai Zhao and Xin Wan and Xiaotong Ni},
       year={2024},
-      eprint={},
+      eprint={2406.18155},
       archivePrefix={arXiv},
       primaryClass={quant-ph}
 }
