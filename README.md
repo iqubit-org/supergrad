@@ -20,6 +20,8 @@
 
 SuperGrad is an open-source simulator designed to accelerate the development of superconducting quantum processors by incorporating gradient computation capabilities.
 
+Notice: This package is currently in its early development stages. Please be aware that breaking changes to the API may occur.
+
 ## Why SuperGrad?
 
 Superconducting processors offer significant design flexibility, including various types of qubits and interactions. With the large number of tunable parameters in a processor, gradient optimization becomes crucial. SuperGrad fills the gap in open-source software by providing a tightly integrated library capable of efficient backpropagation for gradient computation.
