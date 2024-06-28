@@ -250,9 +250,11 @@ class SCGraph(nx.Graph):
         for edge in self.sorted_edges:
             q1, q2 = edge
             attr = graph.edges[edge]
-            nodes_pair = sorted([q1, q2])
-            edge_type = tuple(graph.nodes[node].get('shared_param_mark', node)
-                              for node in nodes_pair)
+            edge_type = tuple(
+                sorted([
+                    graph.nodes[node].get('shared_param_mark', node)
+                    for node in [q1, q2]
+                ]))
             for k, v in dict(attr).items():
                 if unify_coupling:
                     key = _parse_edges_name(k, 'all', 'unify')
@@ -338,10 +340,11 @@ class SCGraph(nx.Graph):
         for edge in self.sorted_edges:
             q1, q2 = edge
             attr = EdgeView(self)[edge]
-            nodes_pair = sorted([q1, q2])
             edge_type = tuple(
-                NodeView(self)[node].get('shared_param_mark', node)
-                for node in nodes_pair)
+                sorted([
+                    NodeView(self)[node].get('shared_param_mark', node)
+                    for node in [q1, q2]
+                ]))
             idx_q1 = subsystem_name_list.index(q1)
             idx_q2 = subsystem_name_list.index(q2)
             if unify_coupling:
@@ -510,10 +513,11 @@ class SCGraph(nx.Graph):
                                 }
                             })
                     else:
-                        nodes_pair = sorted([q1, q2])
                         edge_type = tuple(
-                            NodeView(self)[node].get('shared_param_mark', node)
-                            for node in nodes_pair)
+                            sorted(
+                                NodeView(self)[node].get(
+                                    'shared_param_mark', node)
+                                for node in [q1, q2]))
                         try:
                             edge_type_dict[edge_type].update({coupling_name: v})
                         except KeyError:
@@ -534,10 +538,11 @@ class SCGraph(nx.Graph):
             # update graph edges parameters
             for edge in EdgeView(self):
                 q1, q2 = edge
-                nodes_pair = sorted([q1, q2])
                 edge_type = tuple(
-                    NodeView(self)[node].get('shared_param_mark', node)
-                    for node in nodes_pair)
+                    sorted([
+                        NodeView(self)[node].get('shared_param_mark', node)
+                        for node in [q1, q2]
+                    ]))
                 # update interaction
                 try:
                     if unify_coupling:

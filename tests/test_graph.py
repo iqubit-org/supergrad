@@ -47,7 +47,7 @@ def graph_to_quantum_system(graph: SCGraph = graph,
 def test_sharing_parameters():
     hk_0, params_0 = graph_to_quantum_system(share_params=False)
     hk_1, params_1 = graph_to_quantum_system(share_params=True)
-    assert len(hk_0) - len(hk_1) == 80
+    assert len(hk_0) - len(hk_1) == 100
     assert np.allclose(tree_leaves(params_0), tree_leaves(params_1))
 
 
@@ -56,7 +56,7 @@ def test_enable_deviations():
     hk_1, params_1 = graph_to_quantum_system(add_random=True,
                                              share_params=False)
     hk_2, params_2 = graph_to_quantum_system(add_random=True, share_params=True)
-    assert len(hk_1) - len(hk_2) == 80
+    assert len(hk_1) - len(hk_2) == 100
     assert len(hk_0) == len(hk_1)
     assert np.allclose(tree_leaves(params_1), tree_leaves(params_2))
     assert np.allclose(tree_leaves(params_0), tree_leaves(params_2), rtol=0.05)
