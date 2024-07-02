@@ -6,10 +6,9 @@ import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
 from jax.scipy.special import erf
-import haiku as hk
 
 
-class PulseBase(hk.Module, ABC):
+class PulseBase(ABC):
     """Generic pulse for various gate operations.
 
     Args:
@@ -23,26 +22,22 @@ class PulseBase(hk.Module, ABC):
     """
 
     def __init__(self,
-                 length=None,
-                 amp=None,
+                 length=0,
+                 amp=0,
                  delay=0.,
                  modulate_wave=False,
+                 omega_d=0,
+                 phase=0,
                  name: str = 'pulse'):
-        super().__init__(name=name)
+        self.name = name
 
-        if length is None:
-            self.length = hk.get_parameter('length', [], init=jnp.ones)
-        else:
-            self.length = length
-        if amp is None:
-            self.amp = hk.get_parameter('amp', [], init=jnp.ones)
-        else:
-            self.amp = amp
+        self.length = length
+        self.amp = amp
+
         self.delay = delay
         self.modulate_wave = modulate_wave
-        if self.modulate_wave:
-            self.omega_d = hk.get_parameter('omega_d', [], init=jnp.ones)
-            self.phase = hk.get_parameter('phase', [], init=jnp.zeros)
+        self.omega_d = omega_d
+        self.phase = phase
 
     @abstractmethod
     def create_envelope_pulse(self, t, args={}):
@@ -85,13 +80,17 @@ class PulseTrapezoid(PulseBase):
             amp=None,
             delay=0,
             modulate_wave=False,
+            t_ramp=0,
+            t_plateau=0,
+            omega_d=0,
+            phase=0,
             name: str = 'pulse_trapezoid'):
-        super().__init__(length, amp, delay, modulate_wave, name)
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
 
         # construct activation function
-        self.t_ramp = hk.get_parameter(
-            't_ramp', [], init=jnp.ones)  # time for rising and falling edge
-        self.t_plateau = hk.get_parameter('t_plateau', [], init=jnp.ones)
+        self.t_ramp = t_ramp  # time for rising and falling edge
+        self.t_plateau = t_plateau
         self.length = self.t_plateau + 2 * self.t_ramp
 
     def create_envelope_pulse(self, t, args={}):
@@ -128,24 +127,28 @@ class PulseCosineRamping(PulseBase):
             amp=None,
             delay=0,
             modulate_wave=False,
+            omega_d=0,
+            phase=0,
+            t_ramp=0,
+            t_plateau=0,
             name: str = 'pulse_rampcos'):
-        super().__init__(length, amp, delay, modulate_wave, name)
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
 
         # construct activation function
-        self.t_ramp = hk.get_parameter(
-            't_ramp', [], init=jnp.ones)  # time for rising and falling edge
-        self.t_plateau = hk.get_parameter('t_plateau', [], init=jnp.ones)
+        self.t_ramp = t_ramp  # time for rising and falling edge
+        self.t_plateau = t_plateau
         self.length = self.t_plateau + 2 * self.t_ramp
 
     def create_envelope_pulse(self, t, args={}):
         t_pulse = t - self.delay
         pulse_1 = (1 - jnp.cos(jnp.pi * t_pulse / self.t_ramp)) / 2 * (
-            t_pulse < self.t_ramp)
+                t_pulse < self.t_ramp)
         pulse_2 = (t_pulse >= self.t_ramp) & (t_pulse
                                               <= self.t_ramp + self.t_plateau)
         pulse_3 = (1 - jnp.cos(jnp.pi *
                                (self.length - t_pulse) / self.t_ramp)) / 2 * (
-                                   t_pulse > self.t_ramp + self.t_plateau)
+                          t_pulse > self.t_ramp + self.t_plateau)
         shape = self.amp * (pulse_1 + pulse_2 + pulse_3)
 
         return shape * ((t_pulse >= 0) & (t_pulse <= 0 + self.length))
@@ -179,19 +182,24 @@ class PulseGaussian(PulseBase):
             amp=None,
             delay=0,
             modulate_wave=False,
+            omega_d=0,
+            phase=0,
+            sigma=0,
+            cutoff=0,
             name: str = 'pulse_gaussian'):
-        super().__init__(length, amp, delay, modulate_wave, name)
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
 
-        self.sigma = hk.get_parameter('sigma', [], init=jnp.ones)
-        self.cutoff = hk.get_parameter('cutoff', [], init=jnp.ones)
+        self.sigma = sigma
+        self.cutoff = cutoff
         self.length = 2 * self.cutoff * self.sigma
 
     def create_envelope_pulse(self, t, args={}):
         t_pulse = t - self.delay
         t1 = self.cutoff * self.sigma
-        offset = jnp.exp(-self.cutoff**2 / 2)
+        offset = jnp.exp(-self.cutoff ** 2 / 2)
 
-        shape = (jnp.exp(-(t_pulse - t1)**2 / self.sigma**2 / 2) -
+        shape = (jnp.exp(-(t_pulse - t1) ** 2 / self.sigma ** 2 / 2) -
                  offset) / (1 - offset)
 
         shape = shape * ((t_pulse >= 0) & (t_pulse <= self.length)) * self.amp
@@ -222,22 +230,27 @@ class PulseGaussianSquare(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=False,
+                 omega_d=0,
+                 phase=0,
+                 sigma=0,
+                 cutoff=0,
                  name: str = 'pulse_gaussian_envelope'):
-        super().__init__(length, amp, delay, modulate_wave, name)
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
 
-        self.sigma = hk.get_parameter('sigma', [], init=jnp.ones)
-        self.cutoff = hk.get_parameter('cutoff', [], init=jnp.ones)
+        self.sigma = sigma
+        self.cutoff = cutoff
 
     def create_envelope_pulse(self, t, args={}):
         t_pulse = t - self.delay
         t1 = self.cutoff * self.sigma
         t2 = self.length - self.cutoff * self.sigma
-        offset = jnp.exp(-self.cutoff**2 / 2)
+        offset = jnp.exp(-self.cutoff ** 2 / 2)
 
-        shape = (jnp.exp(-(t_pulse - t1)**2 / self.sigma**2 / 2) -
+        shape = (jnp.exp(-(t_pulse - t1) ** 2 / self.sigma ** 2 / 2) -
                  offset) / (1 - offset) * (t_pulse <= t1)
         shape += 1.0 * ((t_pulse > t1) & (t_pulse <= t2))
-        shape += (jnp.exp(-(t_pulse - t2)**2 / self.sigma**2 / 2) -
+        shape += (jnp.exp(-(t_pulse - t2) ** 2 / self.sigma ** 2 / 2) -
                   offset) / (1 - offset) * (t_pulse > t2)
 
         shape = shape * ((t_pulse >= 0) & (t_pulse <= self.length)) * self.amp
@@ -266,8 +279,11 @@ class PulseCosine(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=False,
+                 omega_d=0,
+                 phase=0,
                  name: str = 'pulse_1mcos'):
-        super().__init__(length, amp, delay, modulate_wave, name)
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
 
     def create_envelope_pulse(self, t, args={}):
         t_pulse = t - self.delay
@@ -306,11 +322,16 @@ class PulseTanh(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=False,
+                 omega_d=0,
+                 phase=0,
+                 sigma=0,
+                 cutoff=0,
                  name: str = 'pulse_tanh'):
-        super().__init__(length, amp, delay, modulate_wave, name)
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
 
-        self.sigma = hk.get_parameter('sigma', [], init=jnp.ones)
-        self.cutoff = hk.get_parameter('cutoff', [], init=jnp.ones)
+        self.sigma = sigma
+        self.cutoff = cutoff
 
     def create_envelope_pulse(self, t, args={}):
         t_pulse = t - self.delay
@@ -356,11 +377,16 @@ class PulseErf(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=False,
+                 omega_d=0,
+                 phase=0,
+                 sigma=0,
+                 cutoff=0,
                  name: str = 'pulse_erf'):
-        super().__init__(length, amp, delay, modulate_wave, name)
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
 
-        self.sigma = hk.get_parameter('sigma', [], init=jnp.ones)
-        self.cutoff = hk.get_parameter('cutoff', [], init=jnp.ones)
+        self.sigma = sigma
+        self.cutoff = cutoff
 
     def create_envelope_pulse(self, t, args={}):
         t_pulse = t - self.delay
@@ -402,12 +428,16 @@ class PulseWithDRAG(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=True,
+                 omega_d=0,
+                 phase=0,
+                 lam=0,
                  name: str = 'pulse_drag'):
         assert modulate_wave is True
-        super().__init__(length, amp, delay, modulate_wave, name)
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
 
         # DRAG codes
-        self.lam = hk.get_parameter('lambda', [], init=jnp.zeros)
+        self.lam = lam
 
         self.envelope = envelope(length=self.length,
                                  amp=1.0,
@@ -438,10 +468,10 @@ class PulseWithDRAG(PulseBase):
 
 
 def draw(
-    pulse: PulseBase,
-    ts,
-    function: Optional[str] = "pulse",
-    title: Optional[str] = None,
+        pulse: PulseBase,
+        ts,
+        function: Optional[str] = "pulse",
+        title: Optional[str] = None,
 ):
     """Plot the pulse over an array `ts`.
     The ``function`` arg specifies which function to plot:
@@ -454,46 +484,37 @@ def draw(
         function: Which function to plot.
         title: Title of plot.
     """
-
-    @hk.without_apply_rng
-    @hk.transform
-    def _draw(ts, function, title):
-        if function == "pulse":
-            y_vals = pulse.create_pulse(ts)
-            title = title or "Value of " + pulse.name
-        elif function == "envelope":
-            y_vals = pulse.create_envelope_pulse(ts)
-            title = title or "Envelope of " + pulse.name
+    if function == "pulse":
+        y_vals = pulse.create_pulse(ts)
+        title = title or "Value of " + pulse.name
+    elif function == "envelope":
+        y_vals = pulse.create_envelope_pulse(ts)
+        title = title or "Envelope of " + pulse.name
 
         plt.figure(figsize=(8, 4))
         plt.plot(ts, y_vals)
         plt.title(title)
         plt.tight_layout()
-
-    _draw.apply({}, ts, function, title)
+    return
 
 
 if __name__ == '__main__':
-
-    @hk.without_apply_rng
-    @hk.transform
-    def plot_pulse():
-        pulse = PulseWithDRAG(delay=0, modulate_wave=True, name='pulse')
+    def plot_pulse(params):
+        pulse = PulseWithDRAG(delay=0, modulate_wave=True, name='pulse', **params)
         ts = np.linspace(0, pulse.pulse_endtime + 4, 500)
         draw(pulse, ts, 'pulse')
         draw(pulse, ts, 'envelope')
         plt.show()
 
-    plot_pulse.apply({
-        'pulse': {
-            'amp': jnp.array(0.5),
-            'omega_d': jnp.array(2.),
-            'phase': jnp.array(0.),
-            't_ramp': jnp.array(30.),
-            't_plateau': jnp.array(30.),
-            'sigma': jnp.array(1.),
-            'cutoff': jnp.array(2.),
-            'length': jnp.array(60.),
-            'lambda': jnp.array(0.)
-        }
+
+    plot_pulse({
+        'amp': jnp.array(0.5),
+        'omega_d': jnp.array(2.),
+        'phase': jnp.array(0.),
+#       't_ramp': jnp.array(30.),
+#       't_plateau': jnp.array(30.),
+#       'sigma': jnp.array(1.),
+#       'cutoff': jnp.array(2.),
+        'lam': jnp.array(0.),
+        'length': jnp.array(60.),
     })

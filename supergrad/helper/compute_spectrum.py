@@ -1,3 +1,4 @@
+import copy
 from supergrad.helper.helper import Helper
 from supergrad.scgraph.graph import SCGraph
 
@@ -20,28 +21,19 @@ class Spectrum(Helper):
 
     def __init__(self,
                  graph,
-                 truncated_dim=5,
-                 add_random=True,
-                 share_params=False,
-                 unify_coupling=False,
                  *args,
                  **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.graph: SCGraph = graph
-        self.truncated_dim = truncated_dim
-        self.add_random = add_random
-        self.share_params = share_params
-        self.unify_coupling = unify_coupling
 
-    def _init_quantum_system(self):
-        self.hilbertspace = self.graph.convert_graph_to_quantum_system(
-            add_random=self.add_random,
-            share_params=self.share_params,
-            unify_coupling=self.unify_coupling,
-            truncated_dim=self.truncated_dim,
-        )
+    def init_quantum_system(self, params):
+        super().init_quantum_system(params)
+        graph = copy.deepcopy(self.graph)
+        graph.update_parameters(params)
+        self.hilbertspace = graph.convert_graph_to_quantum_system()
 
+    @Helper.decorator_auto_init
     def energy_tensor(self, greedy_assign=True):
         """Return the eigenenergy of quantum system in tensor form.
 
@@ -52,6 +44,7 @@ class Spectrum(Helper):
 
         return self.hilbertspace.compute_energy_map(greedy_assign)
 
+    @Helper.decorator_auto_init
     def get_model_eigen_basis(self,
                               list_qubit_name,
                               list_drive_subsys,

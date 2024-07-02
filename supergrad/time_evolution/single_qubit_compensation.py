@@ -1,6 +1,7 @@
+from typing import List
 import numpy as np
+import jax
 import jax.numpy as jnp
-import haiku as hk
 
 from supergrad.scgraph.graph import (SCGraph, parse_pre_comp_name,
                                      parse_post_comp_name)
@@ -12,7 +13,7 @@ pauli_mats.append(np.array([[0., 1j], [-1j, 0.]]))
 pauli_mats.append(np.array(np.diag((1., -1.))))
 
 
-class SingleQubitCompensation(hk.Module):
+class SingleQubitCompensation():
     """Class for single qubit gates compensation.
 
     Args:
@@ -22,67 +23,49 @@ class SingleQubitCompensation(hk.Module):
         coupler_subsystem: the name of coupler subsystem should be keep in |0>
             during the evolution.
         name: module name
+
+    Raises:
+        ValueError: the compensation data in graph shape mismatch with the type
     """
 
     def __init__(self,
                  graph: SCGraph,
-                 compensation_option='only_vz',
                  coupler_subsystem=[],
                  name: str = 'single_q_compensation'):
-        super().__init__(name=name)
-        assert compensation_option in ['only_vz', 'arbit_single']
+        self.name = name
         # construct activation function
-        self.pre_comp_angles = []
-        self.post_comp_angles = []
-        self.compensation_option = compensation_option
-        shape = [] if self.compensation_option == 'only_vz' else [3]
+        self.pre_comp_angles: List[jax.Array] = []
+        self.post_comp_angles: List[jax.Array] = []
+        shape = []
 
-        for node in graph.sorted_nodes:
-            if node not in coupler_subsystem:
-                self.pre_comp_angles.append(
-                    hk.get_parameter(parse_pre_comp_name(node),
-                                     shape,
-                                     init=jnp.zeros))
-                self.post_comp_angles.append(
-                    hk.get_parameter(parse_post_comp_name(node),
-                                     shape,
-                                     init=jnp.zeros))
+        for node_name in graph.sorted_nodes:
+            if node_name not in coupler_subsystem:
+                node_comp = graph.nodes[node_name].get("compensation", {})
+                self.pre_comp_angles.append(node_comp.get("pre_comp", jnp.zeros(shape)))
+                self.post_comp_angles.append(node_comp.get("post_comp", jnp.zeros(shape)))
 
     def create_unitaries(self):
         """Create unitaries describe the single-qubit rotation before and after
         the time evolution.
         """
-        if self.compensation_option == 'only_vz':
-            # do single-qubit Z-rotation before and after the time evolution
-            pre_unitaries = [
-                jnp.cos(pre_params) * pauli_mats[0] +
-                1j * jnp.sin(pre_params) * pauli_mats[3]
-                for pre_params in self.pre_comp_angles
-            ]
-            post_unitaries = [
-                jnp.cos(post_params) * pauli_mats[0] +
-                1j * jnp.sin(post_params) * pauli_mats[3]
-                for post_params in self.post_comp_angles
-            ]
-        else:
-            # do arbitrary single-qubit rotation before and after the time evolution
-            pre_unitaries = [
-                jnp.cos(pre_params[1]) * pauli_mats[0] +
-                1j * jnp.sin(pre_params[1]) *
-                (jnp.cos(pre_params[0]) * pauli_mats[3] +
-                 jnp.sin(pre_params[0]) *
-                 (jnp.cos(pre_params[2]) * pauli_mats[1] +
-                  jnp.sin(pre_params[2]) * pauli_mats[2]))
-                for pre_params in self.pre_comp_angles
-            ]
-            post_unitaries = [
-                jnp.cos(post_params[1]) * pauli_mats[0] +
-                1j * jnp.sin(post_params[1]) *
-                (jnp.cos(post_params[0]) * pauli_mats[3] +
-                 jnp.sin(post_params[0]) *
-                 (jnp.cos(post_params[2]) * pauli_mats[1] +
-                  jnp.sin(post_params[2]) * pauli_mats[2]))
-                for post_params in self.post_comp_angles
-            ]
+        # 1 param: do single-qubit Z-rotation before and after the time evolution
+        # 3 params: do arbitrary single-qubit rotation before and after the time evolution
+        list_pre_post = []
+        for angles in [self.pre_comp_angles, self.post_comp_angles]:
+            list_unitary = []
+            for params in angles:
+                if params.size == 1:
+                    unitary = jnp.cos(params) * pauli_mats[0] + 1j * jnp.sin(params) * pauli_mats[3]
+                elif params.size == 3:
+                    unitary = (jnp.cos(params[1]) * pauli_mats[0] +
+                               1j * jnp.sin(params[1]) *
+                               (jnp.cos(params[0]) * pauli_mats[3] +
+                                jnp.sin(params[0]) *
+                                (jnp.cos(params[2]) * pauli_mats[1] +
+                                 jnp.sin(params[2]) * pauli_mats[2])))
+                else:
+                    raise ValueError(f"Incompatible array size {params.size}")
+                list_unitary.append(unitary)
+            list_pre_post.append(list_unitary)
 
-        return pre_unitaries, post_unitaries
+        return tuple(list_pre_post)

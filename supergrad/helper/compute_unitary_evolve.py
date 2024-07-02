@@ -1,4 +1,6 @@
-import haiku as hk
+import copy
+from typing import Optional, Literal
+import jax
 import numpy as np
 import jax.numpy as jnp
 
@@ -7,6 +9,8 @@ from supergrad.time_evolution import sesolve, sesolve_final_states_w_basis_trans
 from supergrad.utils.utility import create_state_init, tensor
 from supergrad.time_evolution.single_qubit_compensation import SingleQubitCompensation
 from supergrad.scgraph.graph import SCGraph
+
+BasisType = Literal["eigen", "product"]
 
 
 class Evolve(Helper):
@@ -17,25 +21,8 @@ class Evolve(Helper):
     Args:
         graph (SCGraph): The graph containing both Hamiltonian and control
             parameters.
-        truncated_dim (int):  Desired dimension of the truncated subsystem.
-            Note that this applies to all qubits on the graph. One could
-            set local configuration for each qubit in the `graph.nodes['qubit']['arguments']`
-            to allow different dimension.
-        add_random (bool): If true, will add random deviations to the device
-            parameters according to the graph.
-        share_params (bool): Share device parameters between the qubits that
-            have the same shared_param_mark. This is used only for gradient
-            computation. One must define `shared_param_mark` in the
-            `graph.nodes['qubit']['shared_param_mark']`.
-        unify_coupling (bool): Let all couplings in the quantum system be the same.
-            TODO: if set to true, which coupling will be used to do the computation?
         coupler_subsystem: Qubits which we set to `|` 0> initially and at the end.
             TODO: make this more general.
-        compensation_option: Set single qubit compensation strategy, should be in
-            ['no_comp', 'only_vz', 'arbit_single']. 'no_comp' means we do no
-            compenstaion. 'only_vz' means we will do single-qubit Z-rotation
-            before and after the time evolution. 'arbit_single' means we will do
-            arbitrary single-qubit rotation before and after the time evolution.
         solver: the type of time evolution solver, should be in ['ode_expm', 'odeint'].
         options: the arguments will be passed to solver.
             See `supergrad.time_evolution.sesolve`.
@@ -43,73 +30,40 @@ class Evolve(Helper):
 
     def __init__(self,
                  graph,
-                 truncated_dim=5,
-                 add_random=True,
-                 share_params=False,
-                 unify_coupling=False,
-                 compensation_option='no_comp',
-                 coupler_subsystem=[],
+                 coupler_subsystem=None,
                  solver='ode_expm',
-                 options={
-                     'astep': 2000,
-                     'trotter_order': 1
-                 },
+                 options=None,
                  *args,
                  **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+        if coupler_subsystem is None:
+            coupler_subsystem = []
+        if options is None:
+            options = {'astep': 2000, 'trotter_order': 1}
+
         self.graph: SCGraph = graph
-        self.truncated_dim = truncated_dim
-        self.add_random = add_random
-        self.share_params = share_params
-        self.unify_coupling = unify_coupling
         self.coupler_subsystem = coupler_subsystem
-        if compensation_option not in ['no_comp', 'only_vz', 'arbit_single']:
-            raise NotImplementedError(
-                f'Strategy {compensation_option} has not been implemented.')
-        self.compensation_option = compensation_option
         if solver not in ['ode_expm', 'odeint']:
             raise NotImplementedError(
                 f'Solver {solver} has not been implemented.')
         self.solver = solver
         self.options = options
         self.psi_list = None
+        self.hamiltonian_component_and_pulseshape = None
+        self.pulse_endtime = 0
+        self.pre_unitaries = None
+        self.post_unitaries = None
 
-    def _init_quantum_system(self):
-        self.hilbertspace = self.graph.convert_graph_to_quantum_system(
-            add_random=self.add_random,
-            share_params=self.share_params,
-            unify_coupling=self.unify_coupling,
-            truncated_dim=self.truncated_dim)
-        self.hamiltonian_component_and_pulseshape, self.pulse_endtime = self.graph.convert_graph_to_pulse_lst(
-            self.hilbertspace, modulate_wave=True)
-        if self.compensation_option in ['only_vz', 'arbit_single']:
-            sqc = SingleQubitCompensation(self.graph, self.compensation_option,
-                                          self.coupler_subsystem)
-            self.pre_unitaries, self.post_unitaries = sqc.create_unitaries()
-
-    @property
-    def pulse_params(self):
-        """The pulse parameters dictionary."""
-        pulse_params = self.graph.convert_graph_to_pulse_parameters_haiku()
-        if self.compensation_option != 'no_comp':
-            # Add initial compensation if not provided in the graph
-            initial_comp = self.graph.convert_graph_to_comp_initial_guess(
-                self.compensation_option)
-            pulse_params = hk.data_structures.merge(initial_comp, pulse_params)
-        return pulse_params
-
-    @property
-    def all_params(self):
-        """The static parameters dictionary."""
-        all_params = self.graph.convert_graph_to_parameters_haiku(
-            self.share_params, self.unify_coupling)
-        if self.compensation_option != 'no_comp':
-            # Add initial compensation if not provided in the graph
-            initial_comp = self.graph.convert_graph_to_comp_initial_guess(
-                self.compensation_option)
-            all_params = hk.data_structures.merge(initial_comp, all_params)
-        return all_params
+    def init_quantum_system(self, params: dict):
+        super().init_quantum_system(params)
+        graph = copy.deepcopy(self.graph)
+        graph.update_parameters(params)
+        self.hilbertspace = graph.convert_graph_to_quantum_system()
+        self.hamiltonian_component_and_pulseshape, self.pulse_endtime = graph.convert_graph_to_pulse_lst(
+            self.hilbertspace)
+        sqc = SingleQubitCompensation(graph, self.coupler_subsystem)
+        self.pre_unitaries, self.post_unitaries = sqc.create_unitaries()
 
     def _prepare_initial_states(self, psi_list=None):
         """Prepare the initial states for time evolution.
@@ -154,25 +108,53 @@ class Evolve(Helper):
         else:
             return None
 
-    def eigen_basis(self,
+    def get_basis_transform_matrix(self, basis: BasisType, transform_matrix=None) -> Optional[jax.Array]:
+        """Gets the basis transform matrix before/after time evolution based on the basis.
+
+        One can provide custom transform_matrix to replace the computed eigen basis.
+
+        Args:
+            basis: "product" for time evolution without basis transformation, "eigen" for in eigen basis.
+            transform_matrix: pre-computed transform matrix, used when design parameters is not optimized.
+
+        Returns:
+            the transform_matrix
+        """
+        if basis == "eigen":
+            if transform_matrix is None:
+                u_to_eigen = self.hilbertspace.compute_transform_matrix()
+            else:
+                u_to_eigen = transform_matrix
+        elif basis == "product":
+            u_to_eigen = None
+            if transform_matrix is not None:
+                raise ValueError("Transform matrix cannot be used in the product basis")
+        else:
+            raise ValueError(f"Unknown basis type {basis}")
+
+        return u_to_eigen
+
+    def final_state(self,
+                    basis: BasisType,
                     transform_matrix=None,
                     psi_list=None,
                     _remove_compensation=False,
                     **kwargs):
-        """Running the time evolution in the eigenbasis.
+        """Running the time evolution in the eigen / product basis and get the final states.
 
         Args:
+            basis: can be "eigen" or "product", indicate the basis of the evolution
             transform_matrix: pre-computed transform matrix,
                 using when design parameters is not optimized.
             states: the list of states for evolution. If None, all the states
                 in computation basis will be used.
             _remove_compensation: whether to remove the compensation(for debug use).
             kwargs: keyword arguments will be passed to `supergrad.time_evolution.sesolve`
+
+        Returns:
+            the final state after the time evolution
         """
-        if transform_matrix is None:
-            u_to_eigen = self.hilbertspace.compute_transform_matrix()
-        else:
-            u_to_eigen = transform_matrix
+        u_to_eigen = self.get_basis_transform_matrix(basis, transform_matrix)
 
         # Single qubit product basis
         # construct static hamiltonian
@@ -188,65 +170,29 @@ class Evolve(Helper):
                                                    solver=self.solver,
                                                    options=self.options,
                                                    **kwargs)
-        if self.compensation_option in ['only_vz', 'arbit_single'
-                                       ] and not _remove_compensation:
+        if not _remove_compensation:
             pre_u = tensor(*self.pre_unitaries)
             post_u = tensor(*self.post_unitaries)
             sim_u = post_u @ sim_u @ pre_u
         return sim_u
 
-    def product_basis(self,
-                      psi_list=None,
-                      _remove_compensation=False,
-                      **kwargs):
-        """Running the time evolution in the product basis.
-
-        Args:
-            psi_list: the list of states for evolution. If None, all the states
-                in computation basis will be used.
-            _remove_compensation: whether to remove the compensation(for debug use).
-            kwargs: keyword arguments will be passed to `supergrad.time_evolution.sesolve`
-        """
-        # Single qubit product basis
-        # construct static hamiltonian
-        ham_static = self.hilbertspace.idling_hamiltonian_in_prod_basis()
-
-        ham = [ham_static, *self.hamiltonian_component_and_pulseshape]
-        self._prepare_initial_states(psi_list)
-        self.tlist = [0, self.pulse_endtime]
-        sim_u = sesolve_final_states_w_basis_trans(ham,
-                                                   self.psi_list,
-                                                   self.tlist,
-                                                   transform_matrix=None,
-                                                   solver=self.solver,
-                                                   options=self.options,
-                                                   **kwargs)
-        if self.compensation_option in ['only_vz', 'arbit_single'
-                                       ] and not _remove_compensation:
-            pre_u = tensor(*self.pre_unitaries)
-            post_u = tensor(*self.post_unitaries)
-            sim_u = post_u @ sim_u @ pre_u
-        return sim_u
-
-    def eigen_basis_trajectory(self,
-                               tlist=None,
-                               psi_list=None,
-                               transform_matrix=None,
-                               **kwargs):
-        """Computing the time evolution trajectory in the eigen basis.
+    def trajectory(self,
+                   basis: str,
+                   tlist=None,
+                   psi_list=None,
+                   transform_matrix=None,
+                   **kwargs):
+        """Computing the time evolution trajectory in the product / eigen basis.
 
         Args:
             tlist: list of time steps.
             psi_list: the list of states for evolution. If None, all the states
                 in computation basis will be used.
             transform_matrix: pre-computed transform matrix,
-                using when design parameters is not optimized.
+                used when design parameters is not optimized.
             kwargs: keyword arguments will be passed to `supergrad.time_evolution.sesolve`
         """
-        if transform_matrix is None:
-            u_to_eigen = self.hilbertspace.compute_transform_matrix()
-        else:
-            u_to_eigen = transform_matrix
+        transform_matrix = self.get_basis_transform_matrix(basis, transform_matrix)
 
         # Single qubit product basis
         # construct static hamiltonian
@@ -254,9 +200,9 @@ class Evolve(Helper):
 
         ham = [ham_static, *self.hamiltonian_component_and_pulseshape]
 
-        transform_matrix = u_to_eigen
         self._prepare_initial_states(psi_list)
-        psi_list = transform_matrix @ self.psi_list
+        if transform_matrix is not None:
+            psi_list = transform_matrix @ self.psi_list
 
         if tlist is None:
             self.tlist = [0, self.pulse_endtime]
@@ -273,47 +219,20 @@ class Evolve(Helper):
         # Replace the last dimension with initial states
         # Now [time, comp, psi_init]
         res = jnp.swapaxes(res, 0, 3)[0]
-        states = jnp.conj(transform_matrix).T @ res
+
+        if transform_matrix is not None:
+            states = jnp.conj(transform_matrix).T @ res
 
         # Extract the states in the computational space
-        pop = jnp.abs(psi_list).real**2
+        pop = jnp.abs(psi_list).real ** 2
         tuple_ar_ix = tuple(np.argmax(pop, axis=1).flatten())
 
         return states, states[:, tuple_ar_ix, :]
 
-    def product_basis_trajectory(self, tlist=None, psi_list=None, **kwargs):
-        """Computing the time evolution trajectory in the product basis.
+    @Helper.decorator_auto_init
+    def product_basis(self, *args, **kwargs):
+        return self.final_state(basis="product", *args, **kwargs)
 
-        Args:
-            tlist: list of time steps.
-            kwargs: keyword arguments will be passed to `supergrad.time_evolution.sesolve`
-        """
-        # Single qubit product basis
-        # construct static hamiltonian
-        ham_static = self.hilbertspace.idling_hamiltonian_in_prod_basis()
-
-        ham = [ham_static, *self.hamiltonian_component_and_pulseshape]
-        self._prepare_initial_states(psi_list)
-        psi_list = self.psi_list
-
-        if tlist is None:
-            self.tlist = [0, self.pulse_endtime]
-        else:
-            self.tlist = tlist
-        # Change astep as it is used between each steps
-        options = self.options.copy()
-        options["astep"] = options["astep"] // (len(self.tlist) - 1)
-        res = sesolve(ham,
-                      psi_list,
-                      self.tlist,
-                      solver=self.solver,
-                      options=options)
-        # Replace the last dimension with initial states
-        # Now [time, comp, psi_init]
-        states = jnp.swapaxes(res, 0, 3)[0]
-
-        # Extract the states in the computational space
-        pop = jnp.abs(psi_list).real**2
-        tuple_ar_ix = tuple(np.argmax(pop, axis=1).flatten())
-
-        return states, states[:, tuple_ar_ix, :]
+    @Helper.decorator_auto_init
+    def eigen_basis(self, *args, **kwargs):
+        return self.final_state(basis="eigen", *args, **kwargs)

@@ -1,6 +1,5 @@
 import numpy as np
 import jax.numpy as jnp
-import haiku as hk
 
 from .base import QuantumSystem
 from .circuit import CircuitLCJ
@@ -40,11 +39,11 @@ class Fluxonium(CircuitLCJ):
     """
 
     def __init__(self,
-                 ec: float = None,
-                 ej: float = None,
-                 el: float = None,
+                 ec: float,
+                 ej: float,
+                 el: float,
+                 phiext: float,
                  constant: bool = False,
-                 phiext: float = None,
                  put_phiext_on_inductor: bool = True,
                  num_basis: int = 400,
                  truncated_dim: int = 10,
@@ -58,39 +57,15 @@ class Fluxonium(CircuitLCJ):
         super().__init__(False, basis, num_basis, truncated_dim, n_max, phi_max,
                          is_basis_sym, drive_for_state_phase, name)
 
-        if not constant:
-            self._ec = hk.get_parameter('ec', [],
-                                        init=const_init(ec))
-            self._ej = hk.get_parameter('ej', [],
-                                        init=const_init(ej))
-            self._el = hk.get_parameter('el', [],
-                                        init=const_init(el))
-            # add gaussian distribution variance
-            self.add_lcj_params_variance(var)
-        else:
-            self.ec = ec
-            self.ej = ej
-            self.el = el
-        if phiext is not None:
-            self.phiext = phiext
-        else:
-            self.phiext = hk.get_parameter('phiext', [], init=jnp.zeros)
+        self.ec = ec
+        self.ej = ej
+        self.el = el
+        self.phiext = phiext
+
         if basis not in ['phase', 'charge', 'phase_only']:
             raise NotImplementedError(f'Do not support basis {basis}.')
 
         self.put_phiext_on_inductor = put_phiext_on_inductor
-
-    def add_lcj_params_variance(self, var=None):
-        """Function to add variance to (device parameters).
-        """
-        if isinstance(var, dict):
-            self.ec = self._ec * var.get('ec', 1.0)
-            self.ej = self._ej * var.get('ej', 1.0)
-            self.el = self._el * var.get('el', 1.0)
-        else:
-            self.ec = self._ec
-            self.ej = self._ej
-            self.el = self._el
 
     def create_t(self) -> jnp.ndarray:
         """Computes kinetic matrix in phase/charge basis.
@@ -209,11 +184,10 @@ class Transmon(CircuitLCJ):
     """
 
     def __init__(self,
-                 ec: float = None,
-                 ej: float = None,
-                 ng: float = None,
+                 ec: float,
+                 ej: float,
+                 ng: float,
                  constant: bool = False,
-                 d: float = None,
                  phiext: float = None,
                  num_basis: int = 400,
                  truncated_dim: int = 10,
@@ -227,41 +201,19 @@ class Transmon(CircuitLCJ):
         super().__init__(True, basis, num_basis, truncated_dim, n_max,
                          phi_max, is_basis_sym, drive_for_state_phase, name)
 
-        if not constant:
-            self._ec = hk.get_parameter('ec', [], init=const_init(ec))
-            self._ej = hk.get_parameter('ej', [], init=const_init(ej))
-            self._el = 0
-            self.add_lcj_params_variance(var)
-        else:
-            self.ec = ec
-            self.ej = ej
-        if ng is None:
-            self.ng = hk.get_parameter('ng', [], init=jnp.ones)
-        else:
-            self.ng = ng
-        if d is None:
-            self.tunable = False
-        else:
-            self.tunable = True
-            self.d = d
+        self.ec = ec
+        self.ej = ej
+
+        self.ng = ng
+
         if basis not in ['phase', 'charge', 'phase_only']:
             raise NotImplementedError(f'Do not support basis {basis}.')
 
-        if phiext is not None:
-            self.phiext = phiext
-        else:
-            self.phiext = hk.get_parameter('phiext', [], init=jnp.zeros)
+        self.phiext = phiext
+        self.tunable = False
+
         self.put_phiext_on_inductor = False  # Transmon do not have inductor
 
-    def add_lcj_params_variance(self, var=None):
-        """Function to add variance to (device parameters).
-        """
-        if isinstance(var, dict):
-            self.ec = self._ec * var.get('ec', 1.0)
-            self.ej = self._ej * var.get('ej', 1.0)
-        else:
-            self.ec = self._ec
-            self.ej = self._ej
 
     def create_t(self) -> jnp.ndarray:
         """Computes kinetic matrix in phase/charge basis.
@@ -348,6 +300,24 @@ class Transmon(CircuitLCJ):
 
         return phi_truncated_eigenbasis
 
+    def cosphi_operator(self, **kwargs) -> jnp.array:
+        """
+
+        Args:
+            **kwargs:
+
+        Returns:
+            The cos(phi) operator in the truncated basis
+        """
+        if self.eigvec_in_raw_basis is None:
+            self.eigenenergies()
+        cosphi_in_raw_basis = self.create_cosphi()
+        cosphi_eigenbasis = jnp.conj(
+            self.eigvec_in_raw_basis
+        ).T @ cosphi_in_raw_basis @ self.eigvec_in_raw_basis
+        cosphi_truncated_eigenbasis = cosphi_eigenbasis[:self.dim, :self.dim]
+        return cosphi_truncated_eigenbasis
+
 
 class Resonator(QuantumSystem):
     """Class representing a harmonic resonator.
@@ -369,11 +339,7 @@ class Resonator(QuantumSystem):
                  name: str = 'resonator') -> None:
         super().__init__(name=name)
 
-        if not constant:
-            self.f_res = hk.get_parameter('f_res', [],
-                                          init=const_init(f_res))
-        else:
-            self.f_res = f_res
+        self.f_res = f_res
         self.remove_zpe = remove_zpe
         # Truncated parameter
         self.truncated_dim = truncated_dim

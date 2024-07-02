@@ -222,6 +222,18 @@ class CircuitLCJ(QuantumSystem):
         elif self.basis == "charge":
             return self.transform_phi_to_n(np.diag(self.ar_phi))
 
+    def create_cosphi(self) -> np.ndarray:
+        """Computes the cos(phi) matrix.
+
+        Returns:
+            matrix of cos(phi)
+        """
+        if self.basis == "phase" or self.basis == "phase_only":
+            return np.diag(np.cos(self.ar_phi))
+        elif self.basis == "charge":
+            return self.charge_cos
+
+
     def create_n(self):
         r"""Computes charge matrix.
 

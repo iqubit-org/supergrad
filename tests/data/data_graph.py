@@ -121,43 +121,46 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
         self.add_node(
             'q02', **{
                 'pulse': {
-                    'amp': jnp.array(0.19362652),
-                    'omega_d': jnp.array(2.63342338),
-                    'phase': jnp.array(-0.56882493),
-                    't_plateau': jnp.array(69.9963988),
-                    't_ramp': jnp.array(30.20130596),
-                    'pulse_type': 'rampcos',
-                    'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    "p1": {
+                        'amp': jnp.array(0.19362652),
+                        'omega_d': jnp.array(2.63342338),
+                        'phase': jnp.array(-0.56882493),
+                        't_plateau': jnp.array(69.9963988),
+                        't_ramp': jnp.array(30.20130596),
+                        'pulse_type': 'rampcos',
+                        'operator_type': 'phi_operator',
+                        'delay': 0.
+                    }},
             })
 
         self.add_node(
             'q12', **{
                 'pulse': {
-                    'amp': jnp.array(0.18108519),
-                    'omega_d': jnp.array(4.18157275),
-                    'phase': jnp.array(0.27647924),
-                    't_plateau': jnp.array(70.00154013),
-                    't_ramp': jnp.array(29.98031495),
-                    'pulse_type': 'rampcos',
-                    'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    "p1": {
+                        'amp': jnp.array(0.18108519),
+                        'omega_d': jnp.array(4.18157275),
+                        'phase': jnp.array(0.27647924),
+                        't_plateau': jnp.array(70.00154013),
+                        't_ramp': jnp.array(29.98031495),
+                        'pulse_type': 'rampcos',
+                        'operator_type': 'phi_operator',
+                        'delay': 0.
+                    }},
             })
 
         self.add_node(
             'q22', **{
                 'pulse': {
-                    'amp': jnp.array(0.21301889),
-                    'omega_d': jnp.array(3.51378339),
-                    'phase': jnp.array(1.08374892),
-                    't_plateau': jnp.array(69.94150468),
-                    't_ramp': jnp.array(30.06869994),
-                    'pulse_type': 'rampcos',
-                    'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    "p1": {
+                        'amp': jnp.array(0.21301889),
+                        'omega_d': jnp.array(3.51378339),
+                        'phase': jnp.array(1.08374892),
+                        't_plateau': jnp.array(69.94150468),
+                        't_ramp': jnp.array(30.06869994),
+                        'pulse_type': 'rampcos',
+                        'operator_type': 'phi_operator',
+                        'delay': 0.
+                    }},
             })
         # the compensation parameters in previous optimization
         self._compensation = {

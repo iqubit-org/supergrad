@@ -1,12 +1,42 @@
-from typing import Callable
+from typing import Callable, Literal
 from abc import ABC, abstractmethod
 import jax
-import haiku as hk
 
+
+InitQuantumSystemType = Literal["check", "bypass", "auto"]
 
 class Helper(ABC):
     """Transform attribute to pure function.
     """
+    # Indicate what functions in the class do not require "init_quantum_system"
+    list_function_not_require_init = []
+
+    @staticmethod
+    def decorator_bypass_init(func):
+        """This marks a function do not require run `init_quantum_system` before calling it.
+
+        Returns:
+            modified function with an attribute to mark this.
+        """
+        func.init_type = "bypass"
+        return func
+
+    @staticmethod
+    def decorator_auto_init(func):
+        """This creates a function with additional first parameters for JAX  to init the quantum system.
+
+        It can be used to mimic the Haiku behavior (define a function and use it with the input parameters)
+
+        Args:
+            func: the original function
+
+        Returns:
+            A new function with additional first parameter as JAX to init the quantum system.
+
+        """
+        func.init_type = "auto"
+        return func
+
 
     def __init__(self, *args, **kwargs) -> None:
 
@@ -14,10 +44,11 @@ class Helper(ABC):
         self.kwargs = kwargs
         self.graph = None
         self.hilbertspace = None
+        self._initialized = False
 
-    @abstractmethod
-    def _init_quantum_system(self):
+    def init_quantum_system(self, params: dict):
         """Initialize quantum system"""
+        self._initialized = True
 
     def __getattribute__(self, attr, transform=True):
         """Use Haiku's decorator before get attribute."""
@@ -25,34 +56,29 @@ class Helper(ABC):
         origin_attr = super().__getattribute__(attr)
         if transform and isinstance(
                 origin_attr,
-                Callable) and not (attr.startswith('_') or attr == 'ls_params'):
+                Callable) and not (attr.startswith('_') or attr == "init_quantum_system"):
+            # Default: add initialization check
+            init_type: InitQuantumSystemType = getattr(origin_attr, "init_type", "check")
+            if init_type == "check":
+                def _transform_func(*args, **kwargs):
+                    if not self._initialized:
+                        raise ValueError("This function call requires the initialization of the quantum system.")
+                    return origin_attr(*args, **kwargs)
 
-            @hk.without_apply_rng
-            @hk.transform
-            def _transform_func(*args, **kwargs):
-                self._init_quantum_system()
-                return origin_attr(*args, **kwargs)
+                return _transform_func
+            # Automatically initialization
+            elif init_type == "auto":
+                def _transform_func(params, *args, **kwargs):
+                    self.init_quantum_system(params)
+                    return origin_attr(*args, **kwargs)
 
-            return _transform_func.apply
+                return _transform_func
+            # Do nothing
+            elif init_type == "bypass":
+                pass
+            else:
+                raise ValueError(f"Unknown function init_type {init_type}")
         return origin_attr
-
-    def ls_params(self, attr: str = None, *args, **kwargs):
-        """Get all parameters for the selected attribute.
-
-        Args:
-            attr(str): Default `None`, get parameters for
-            `self._init_quantum_system`.
-        """
-
-        @hk.transform
-        def prepare_params():
-            self._init_quantum_system()
-            if attr is not None:
-                self.__getattribute__(attr, transform=False)(*args, **kwargs)
-            return
-
-        rng = jax.random.PRNGKey(0)
-        return prepare_params.init(rng)
 
     def _get_dims(self):
         """Get the dimension of the composited quantum system."""
@@ -66,14 +92,12 @@ class Helper(ABC):
     @property
     def device_params(self):
         """The device parameters dictionary."""
-        return self.graph.convert_graph_to_parameters_haiku(
-            self.share_params, self.unify_coupling, only_device_params=True)
+        return self.graph.convert_graph_to_parameters(only_device_params=True)
 
     @property
     def all_params(self):
         """The static parameters dictionary."""
-        all_params = self.graph.convert_graph_to_parameters_haiku(
-            self.share_params, self.unify_coupling)
+        all_params = self.graph.convert_graph_to_parameters()
         return all_params
 
     def idling_hamiltonian_in_prod_basis(self):

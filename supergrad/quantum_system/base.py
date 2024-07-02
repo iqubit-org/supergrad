@@ -1,15 +1,13 @@
 from abc import ABC, abstractmethod
 import jax.scipy as jsp
-import haiku as hk
 
 
-class QuantumSystem(ABC, hk.Module):
+class QuantumSystem(ABC):
     """Generic quantum system class.
     """
 
     def __init__(self, name: str = 'quantum_system'):
-        super().__init__(name=name)
-
+        self.name = name
         self._sys_type = type(self).__name__
 
     @property

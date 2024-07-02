@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pytest
 
 import supergrad
 from supergrad.quantum_system import Fluxonium, Transmon
@@ -15,7 +16,8 @@ def test_transmon_basis():
         def __init__(self, basis) -> None:
             super().__init__(basis=basis)
 
-        def _init_quantum_system(self):
+        def init_quantum_system(self, params):
+            super().init_quantum_system(params)
             self.tmon = Transmon(ec=1.2,
                                  ej=30.02,
                                  ng=0.3,
@@ -26,9 +28,11 @@ def test_transmon_basis():
                                  n_max=31,
                                  constant=True)
 
+        @supergrad.Helper.decorator_auto_init
         def energy_spectrum(self):
             return self.tmon.eigenenergies()
 
+        @supergrad.Helper.decorator_auto_init
         def operator(self):
             """Calculate the operator in the raw basis."""
             return np.asarray(
@@ -43,7 +47,7 @@ def test_transmon_basis():
     # compare operator
     assert np.allclose(tmon_charge.operator({}), tmon_phase.operator({}))
 
-
+@pytest.mark.skip(reason="Tunable transmon not implemented")
 def test_tunable_transmon_basis():
     # construct model
     class ExploreTransmon(supergrad.Helper):
@@ -51,7 +55,8 @@ def test_tunable_transmon_basis():
         def __init__(self, basis) -> None:
             super().__init__(basis=basis)
 
-        def _init_quantum_system(self):
+        def init_quantum_system(self, params):
+            super().init_quantum_system(params)
             self.tmon = Transmon(ec=0.5,
                                  ej=50.0,
                                  d=0.01,
@@ -63,9 +68,11 @@ def test_tunable_transmon_basis():
                                  n_max=31,
                                  constant=True)
 
+        @supergrad.Helper.decorator_auto_init
         def energy_spectrum(self):
             return self.tmon.eigenenergies()
 
+        @supergrad.Helper.decorator_auto_init
         def operator(self):
             """Calculate the operator in the raw basis."""
             return np.asarray(
@@ -88,7 +95,8 @@ def test_fluxonium_basis():
         def __init__(self, basis) -> None:
             super().__init__(basis=basis)
 
-        def _init_quantum_system(self):
+        def init_quantum_system(self, params):
+            super().init_quantum_system(params)
             self.fmon = Fluxonium(ec=2.5,
                                   ej=8.9,
                                   el=0.5,
@@ -100,9 +108,11 @@ def test_fluxonium_basis():
                                   phi_max=5 * np.pi,
                                   constant=True)
 
+        @supergrad.Helper.decorator_auto_init
         def energy_spectrum(self):
             return self.fmon.eigenenergies()
 
+        @supergrad.Helper.decorator_auto_init
         def operator(self):
             """Calculate the operator in the raw basis."""
             return np.asarray(

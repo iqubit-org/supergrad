@@ -24,7 +24,8 @@ def test_simultaneous_x_gradient(trotter_order):
 
     @jax.grad
     def cal_ref_grad(params):
-        u_cal = ref_evo.product_basis(params)
+        ref_evo.init_quantum_system(params)
+        u_cal = ref_evo.final_state(basis="product")
         return jnp.sum(u_cal).real
 
     ref_grad = cal_ref_grad(ref_evo.all_params)
@@ -37,7 +38,8 @@ def test_simultaneous_x_gradient(trotter_order):
 
     @jax.grad
     def cal_grad(params):
-        u_cal = evo.product_basis(params)
+        evo.init_quantum_system(params)
+        u_cal = evo.final_state(basis="product")
         return jnp.sum(u_cal).real
 
     grad = cal_grad(evo.all_params)
@@ -59,7 +61,8 @@ def test_simultaneous_cnot_gradient(trotter_order):
 
     @jax.grad
     def cal_ref_grad(params):
-        u_cal = ref_evo.product_basis(params)
+        ref_evo.init_quantum_system(params)
+        u_cal = ref_evo.final_state(basis="product")
         return jnp.sum(u_cal).real
 
     ref_grad = cal_ref_grad(ref_evo.all_params)
@@ -72,7 +75,8 @@ def test_simultaneous_cnot_gradient(trotter_order):
 
     @jax.grad
     def cal_grad(params):
-        u_cal = evo.product_basis(params)
+        evo.init_quantum_system(params)
+        u_cal = evo.final_state(basis="product")
         return jnp.sum(u_cal).real
 
     grad = cal_grad(evo.all_params)

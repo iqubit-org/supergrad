@@ -91,11 +91,13 @@ class MPCFluxonium1D(SCGraph):
         Args:
             list_drive_subsys: list of driving subsystem, each element is a list
                 of qubit names
-            add_random: If true, will add random deviations to the device parameters
+            add_random: If true, will add random variance to the device parameters
             kwargs: other parameters for the Spectrum class
         """
         # Compute the model once
-        spec = Spectrum(self, truncated_dim=2, add_random=add_random, **kwargs)
+        spec = Spectrum(self, **kwargs)
+        if add_random:
+            self.add_lcj_params_variance_to_graph(seed=128213)
         list_energy_nd, list_n_mat, list_phi_mat, transform_matrix = spec.get_model_eigen_basis(
             spec.all_params, self.sorted_nodes, list_drive_subsys)
         return list_energy_nd, list_n_mat, list_phi_mat, transform_matrix
@@ -108,7 +110,7 @@ class MPCFluxonium1D(SCGraph):
         Args:
             list_drive_subsys: list of driving subsystem, each element is a list
                 of qubit names
-            add_random: If true, will add random deviations to the device parameters
+            add_random: If true, will add random variance to the device parameters
             kwargs: other parameters for the Spectrum class
         """
         list_sub_energy_nd = []
@@ -116,9 +118,9 @@ class MPCFluxonium1D(SCGraph):
         list_sub_phi_mat = []
         for drive_subsys in list_drive_subsys:
             spec = Spectrum(self.subgraph(drive_subsys),
-                            truncated_dim=2,
-                            add_random=add_random,
                             **kwargs)
+            if add_random:
+                self.add_lcj_params_variance_to_graph(seed=128213)
             list_energy_nd, list_n_mat, list_phi_mat, _ = spec.get_model_eigen_basis(
                 spec.all_params, spec.graph.sorted_nodes, [drive_subsys])
             list_sub_energy_nd.append(list_energy_nd[0])
@@ -162,7 +164,7 @@ class MPCFluxonium1D(SCGraph):
                         add_random: bool,
                         ar_crosstalk=None,
                         pulse_type: str = "cos",
-                        minimal_approach=True):
+                        minimal_approach=False):
         """Creates CR pulses in the quantum processor.
 
         This function supports any multipath coupling model implemented.
@@ -175,7 +177,7 @@ class MPCFluxonium1D(SCGraph):
             ix_target_list: list of the target qubit index, indicates the target
                 qubit that matched the drive frequency.
             tg_list: list of the gate time
-            add_random: If true, will add random deviations to the device parameters
+            add_random: If true, will add random variance to the device parameters
             ar_crosstalk: the crosstalk matrix.  `ar[j,i]` means
                 the pulse `A` applied on `i` qubit leads to `ar[j,i]*A` on `j`
                 qubit.
@@ -212,7 +214,6 @@ class MPCFluxonium1D(SCGraph):
 
             s_start = (0, 0)
             name_drive = self.sorted_nodes[control]
-            name_target = self.sorted_nodes[target]
             if name_drive == drive_subsys[0]:
                 s_target = (0, 1)
                 s_control = (1, 0)
@@ -222,20 +223,13 @@ class MPCFluxonium1D(SCGraph):
             fd = abs(energy_nd[s_target] - energy_nd[s_start])
             f_control = abs(energy_nd[s_control] - energy_nd[s_start])
             detuning = abs(fd - f_control)
-            # compute the effective coupling by n matrices and phi matrices
-            ar_nd = np.array([
-                n_drive[(*s_start, *s)]
-                for n_drive, s in zip(n_mat, [s_control, s_target])
-            ])
-            ar_phi = np.array([
-                phi_drive[(*s_start, *s)]
-                for phi_drive, s in zip(phi_mat, [s_control, s_target])
-            ])
-            jc = self.get_edge_data(
-                name_drive, name_target)['capacitive_coupling']['strength']
-            jl = self.get_edge_data(
-                name_drive, name_target)['inductive_coupling']['strength']
-            j_eff = np.abs(np.prod(ar_nd) * jc + np.prod(ar_phi) * jl)
+            # use the effective coupling strength
+            j_eff = 0.01 * 2 * np.pi
+            # TODO: compute the effective coupling by n matrix and phi matrix
+            # ar_nd = np.array(
+            #     [n_drive[(*s_start, *s_target)] for n_drive in n_mat])
+            # ar_phi = np.array(
+            #     [n_drive[(*s_start, *s_target)] for n_drive in phi_mat])
             tau_eps_drive = np.pi / 2.0 * detuning / j_eff
 
             cr_pulse = {
@@ -250,11 +244,11 @@ class MPCFluxonium1D(SCGraph):
 
             if ar_crosstalk is None:
                 dic1 = deepcopy(cr_pulse)
-                self.add_node(name_drive, pulsecr=dic1)
+                self.add_node(name_drive, pulse={"p1": dic1})
             else:
                 dic2 = self._add_crosstalk_pulse(name_drive, ar_crosstalk,
                                                  cr_pulse)
-                self.add_node(name_drive, pulsecr=dic2)
+                self.add_node(name_drive, pulse={"p1": dic2})
         return transform_matrix
 
     def create_single_qubit_pulse(self,
@@ -321,9 +315,9 @@ class MPCFluxonium1D(SCGraph):
             if ar_crosstalk is None:
                 # update amplitude
                 new_pulse = deepcopy(dic_pulse)
-                self.add_node(name_drive, pulsesq=new_pulse)
+                self.add_node(name_drive, pulse={"p1": new_pulse})
             else:
                 dic2 = self._add_crosstalk_pulse(name_drive, ar_crosstalk,
                                                  dic_pulse)
-                self.add_node(ix_qubit, pulsesq=dic2)
+                self.add_node(ix_qubit, pulse={"p1": dic2})
         return transform_matrix

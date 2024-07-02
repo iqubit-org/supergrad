@@ -1,0 +1,257 @@
+{
+  "$schema": "http://json-schema.org/draft/2020-12/schema#",
+  "$id": "http://iqubit.org/sgm_schema_v1.json",
+  "title": "SuperGradModel",
+  "description": "Define the SGM file format used to I/O SuperGrad models",
+  "type": "object",
+  "required": [
+    "global",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "global": {
+        "type": "object",
+        "required": [
+          "name",
+          "energy_unit",
+          "frequency_unit",
+          "share_params",
+          "unify_coupling"
+        ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The model name"
+        },
+        "energy_unit": {
+          "type": "string",
+          "enum": [
+            "h",
+            "hbar"
+          ],
+          "description": "The energy to frequency conversion in E/h or E/hbar"
+        },
+        "frequency_unit": {
+          "type": "string",
+          "enum": [
+            "GHz"
+          ],
+          "description": "The frequency unit in GHz/MHz/kHz/Hz. Note the time unit changes accordingly."
+        },
+        "share_params": {
+          "type": "boolean",
+          "description": "Two sets of parameters will be kept same in the optimization according to the shared_param_mark attribute of nodes. This works for both nodes and edges (same source/target shared_param_mark)"
+        },
+        "unify_coupling": {
+          "type": "boolean",
+          "description": "All coupling sharing the same parameters"
+        }
+      },
+      "if": {
+        "properties": {"unify_coupling":  {"const":  true}}
+      },
+      "then": {
+        "properties": {"share_params":  {"const":  true}}
+      }
+    },
+    "common": {
+      "type": "array",
+      "description": "Host the shared common arguments between nodes",
+      "items": {
+        "type": "object"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "system_type",
+          "shared_param_mark"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "the qubit name"
+          },
+          "system_type": {
+            "type": "string",
+            "description": "the qubit type",
+            "enum": [
+              "transmon",
+              "fluxonium",
+              "resonator"
+            ]
+          },
+          "shared_param_mark": {
+            "type": "integer",
+            "description": "Indicate the group that share the same qubit parameters. We will set the parameters to be the same for systems with same shared_param_mark. This is intended to only effect gradient computation when share_params = True in Evolve and to make sure to set shared systems to the same value."
+          },
+          "arguments": {
+            "description": "Contains fixed parameters of the qubit",
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "variance": {
+            "type": "object",
+            "description": "The variance of ec, ej, el parameters. The values here are multiplied to the ec ej el if enable_var = True in Evolve."
+          }
+        }
+      }
+    }
+  },
+  "edges": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "required": [
+        "source",
+        "target"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "the source qubit name"
+        },
+        "target": {
+          "type": "string",
+          "description": "the source qubit name"
+        },
+        "capacitive_coupling": {
+          "type": "object",
+          "required": [
+            "strength"
+          ],
+          "properties": {
+            "strength": {
+              "description": "coefficient for the capacitive interaction strength",
+              "type": "number"
+            }
+          }
+        },
+        "inductive_coupling": {
+          "type": "object",
+          "required": [
+            "strength"
+          ],
+          "properties": {
+            "strength": {
+              "description": "coefficient for the inductive interaction strength",
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  },
+  "pulse": {
+    "type": "array",
+    "description": "the parameters below depend on the pulse type",
+    "items": {
+      "type": "object",
+      "required": [
+        "id",
+        "pulse_type",
+        "operator_type",
+        "delay"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "the qubit name"
+        },
+        "pulse_type": {
+          "type": "string",
+          "enum": [
+            "trapezoid",
+            "cos",
+            "rampcos",
+            "tanh",
+            "erf",
+            "gaussian"
+          ]
+        },
+        "operator_type": {
+          "type": "string",
+          "enum": [
+            "n_operator",
+            "phi_operator"
+          ]
+        },
+        "delay": {
+          "description": "time delay for waiting other gate operations",
+          "type": "number"
+        },
+        "amp": {
+          "description": "the amplitude of pulse",
+          "type": "number"
+        },
+        "length": {
+          "description": "the length of pulse",
+          "type": "number"
+        },
+        "omega_d": {
+          "description": "drive frequency of modulate wave",
+          "type": "number"
+        },
+        "phase": {
+          "description": "phase of modulate wave",
+          "type": "number"
+        },
+        "arguments": {
+          "description": "Contains fixed parameters of the qubit",
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "modulate_wave"
+              ],
+              "properties": {
+                "modulate_waves": {
+                  "description": "if true, a modulate wave of frequency omega_d is multiplied to the waveform",
+                  "type": "boolean"
+                }
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "crosstalk": {
+          "description": "the qubit has crosstalk",
+          "type": "object",
+          "additionalProperties": {
+            "description": "the factor of crosstalk amplitude",
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "compensation": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "required": [
+        "id",
+        "pre_comp",
+        "post_comp"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "the qubit name"
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import jax.numpy as jnp
+import networkx as nx
 import haiku as hk
 import pytest
 
@@ -12,19 +13,23 @@ from supergrad.time_evolution.pulseshape import PulseCosine, PulseCosineRamping
 from supergrad.time_evolution import sesolve, sesolve_final_states_w_basis_trans
 from supergrad.utils.fidelity import compute_fidelity_with_1q_rotation_axis
 from supergrad.utils import create_state_init, gates, identity_wrap
+from supergrad.scgraph import SCGraph
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 os.chdir(dir_path)
 
 
 def test_x_gate(solver='ode_expm', options={'astep': 1280}):
-
     class SingleGate(supergrad.Helper):
 
-        def _init_quantum_system(self):
-            self.fq = Fluxonium(phiext=0.5 * 2 * np.pi, phi_max=5 * np.pi)
-            self.pulseshape = PulseCosine(modulate_wave=True)
+        def init_quantum_system(self, params):
+            super().init_quantum_system(params)
+            self.fq = Fluxonium(ec=params["fluxonium"]["ec"], ej=params["fluxonium"]["ej"],
+                                el=params["fluxonium"]["el"],
+                                phiext=0.5 * 2 * np.pi, phi_max=5 * np.pi)
+            self.pulseshape = PulseCosine(**params["pulse_1mcos"], modulate_wave=True)
 
+        @supergrad.Helper.decorator_auto_init
         def evo(self):
             eig_val = self.fq.eigenenergies()
             ham_diag = jnp.diag(eig_val)
@@ -39,8 +44,7 @@ def test_x_gate(solver='ode_expm', options={'astep': 1280}):
                           options=options)
             return res
 
-    def infidelity(params, all_params={}):
-        params = hk.data_structures.merge(all_params, params)
+    def infidelity(params):
         res = sg.evo(params)
         states = res[:, -1, :2, 0]
         fidelity, _ = compute_fidelity_with_1q_rotation_axis(gates.sigmax(),
@@ -87,31 +91,33 @@ def test_cr_gate(solver='ode_expm',
                      'trotter_order': 1,
                      'diag_ops': False
                  }):
-
     class MultiGate(supergrad.Helper):
 
-        def _init_quantum_system(self):
-            self.control = Fluxonium(phiext=0.5 * 2 * np.pi,
-                                     phi_max=5 * np.pi,
-                                     name='control')
-            self.target = Fluxonium(phiext=0.5 * 2 * np.pi,
-                                    phi_max=5 * np.pi,
-                                    name='target')
+        def init_quantum_system(self, params):
+            super().init_quantum_system(params)
+            self.control = Fluxonium(ec=params["control"]["ec"], ej=params["control"]["ej"],
+                                     el=params["control"]["el"],
+                                     phiext=0.5 * 2 * np.pi, phi_max=5 * np.pi)
+            self.target = Fluxonium(ec=params["target"]["ec"], ej=params["target"]["ej"],
+                                    el=params["target"]["el"],
+                                    phiext=0.5 * 2 * np.pi, phi_max=5 * np.pi)
+
             inter_list = []
 
             inter_list.append(
                 parse_interaction(op1=self.control.n_operator,
                                   op2=self.target.n_operator,
-                                  name='jc'))
+                                  strength=params["jc"]["strength"]))
             inter_list.append(
                 parse_interaction(op1=self.control.phi_operator,
                                   op2=self.target.phi_operator,
-                                  name='jl'))
+                                  strength=params["jl"]["strength"]))
 
             self.hilbertspace = InteractingSystem([self.control, self.target],
                                                   inter_list)
-            self.pulseshape = PulseCosineRamping(modulate_wave=True)
+            self.pulseshape = PulseCosineRamping(**params["pulse_rampcos"], modulate_wave=True)
 
+        @supergrad.Helper.decorator_auto_init
         def evo(self):
             # Single qubit product basis
             # construct static hamiltonian
@@ -159,8 +165,7 @@ def test_cr_gate(solver='ode_expm',
         }
     }
 
-    def infidelity(params, all_params={}):
-        params = hk.data_structures.merge(all_params, params)
+    def infidelity(params):
         sim_u = mg.evo(params)
         fidelity, u_optimal = compute_fidelity_with_1q_rotation_axis(
             gates.cnot(),

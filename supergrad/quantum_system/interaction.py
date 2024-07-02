@@ -3,7 +3,6 @@ import re
 import numpy as np
 import jax
 import jax.numpy as jnp
-import haiku as hk
 
 from supergrad.utils.utility import identity_wrap, const_init
 from .base import QuantumSystem
@@ -57,11 +56,10 @@ def parse_interaction(**kwargs):
     return InteractionTerm(strength=g,
                            operator_list=operator_list,
                            add_hc=add_hc,
-                           constant=constant,
                            name=name)
 
 
-class InteractionTerm(hk.Module):
+class InteractionTerm():
     """Class for specifying a term in the interaction Hamiltonian of a composite
     Hilbert space.
 
@@ -70,8 +68,6 @@ class InteractionTerm(hk.Module):
         strength: coefficient for the interaction strength,
             set `None` if you want to pass parameters by dm-haiku.
         add_hc: If set to True, the Hermitian conjugate is added.
-        constant (bool): True for manually setting parameters, False for using
-            haiku's parameters management.
         name: module name
     """
 
@@ -80,15 +76,10 @@ class InteractionTerm(hk.Module):
         operator_list: List[Callable],
         strength: float = None,
         add_hc: bool = False,
-        constant: bool = False,
         name: str = 'interaction_term'
     ) -> None:
-        super().__init__(name=name)
-        if not constant:
-            self.strength = hk.get_parameter('strength', [],
-                                             init=const_init(strength))
-        else:
-            self.strength = strength
+        self.name = name
+        self.strength = strength
         self.operator_list = operator_list
         self.add_hc = add_hc
 
@@ -103,7 +94,6 @@ class InteractionTerm(hk.Module):
                 list of all quantum systems in InteractingSystem calling ``hamiltonian``,
                 needed for identity wrapping
         """
-
         hamiltonian = self.id_wrap_all_ops(self.operator_list,
                                            subsystem_list)
         if self.add_hc:

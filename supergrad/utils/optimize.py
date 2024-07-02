@@ -12,7 +12,7 @@ from jax.example_libraries import optimizers
 from jax._src.numpy.util import implements
 import pprint
 
-from supergrad.utils.utility import convert_to_json_compatible
+from supergrad.utils.format_conv import convert_to_json_compatible
 
 
 def value_and_gradfwd(fun: Callable, argnums=0):

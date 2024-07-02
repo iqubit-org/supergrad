@@ -1,12 +1,9 @@
 from typing import Callable, Optional, List, Union
 from functools import reduce
-import json
 import numbers
 import numpy as np
-import jax
 import jax.numpy as jnp
 import scipy.constants as const
-import pprint
 
 import supergrad
 
@@ -201,7 +198,7 @@ def compute_average_photon(power: float,
         raise ValueError("Must specify one and only one of qc and kappa_c")
 
     # Convert to joule/s
-    power = 10**(power / 10) * 1e-3
+    power = 10 ** (power / 10) * 1e-3
     # Convert to kappa
     if kappa_c is None:
         kappa_c = freq * 1e9 / qc
@@ -222,7 +219,6 @@ def tensor_np(*operators):
 
 
 def _parse_operator(operator, **kwargs) -> jnp.ndarray:
-
     if isinstance(operator, Callable):
         return operator(**kwargs)
     if isinstance(operator, jnp.ndarray):
@@ -231,11 +227,11 @@ def _parse_operator(operator, **kwargs) -> jnp.ndarray:
 
 
 def identity_wrap(
-    operator: Union[Callable, jnp.ndarray],
-    subsystem_list,
-    subsystem=None,
-    coeff=1,
-    **kwargs,
+        operator: Union[Callable, jnp.ndarray],
+        subsystem_list,
+        subsystem=None,
+        coeff=1,
+        **kwargs,
 ) -> jnp.ndarray:
     """Wrap given operator in subspace `subsystem` in identity operators to form
     full Hilbert-space operator.
@@ -311,7 +307,7 @@ def reduced_unitary(unitary, dims, partial_trace):
         dims.pop(idx)
     target_script = [loc + 1 for loc in locs] + [-loc - 1 for loc in locs]
     return jnp.einsum(unitary_tensor, script + script_2, target_script).reshape(
-        np.prod(dims), np.prod(dims)) / 2**len(partial_trace)
+        np.prod(dims), np.prod(dims)) / 2 ** len(partial_trace)
 
 
 def const_init(val):
@@ -335,55 +331,3 @@ def const_init(val):
             return jnp.array(val, dtype=dtype)
 
     return initializer
-
-
-def convert_device_array(x):
-    """Convert a device array to a list or a number.
-    This is for convert parameters to json compatible format.
-    """
-
-    if x.size == 1:
-        return float(x)
-    else:
-        return x.tolist()
-
-
-def convert_to_json_compatible(x):
-    """
-    Convert input to json compatible format.
-    In particular, it will replace DeviceArray or np.array in the input.
-    """
-
-    return jax.tree_util.tree_map(convert_device_array, x)
-
-
-def convert_to_haiku_dict(x):
-    """
-    Convert input to haiku compatible dictionary.
-    In particular, it will replace input float to the DeviceArray.
-    """
-
-    def _parse_params(x):
-        if isinstance(x, float):
-            return jnp.array(x)
-        else:
-            return x
-
-    return jax.tree_util.tree_map(_parse_params, x)
-
-
-def dump_params(params, fp):
-    """Dump parameters to json."""
-    json.dump(convert_to_json_compatible(params), fp)
-
-
-def load_params(fp):
-    """Load parameters from json."""
-    return convert_to_haiku_dict(json.load(fp))
-
-
-def tree_print(t):
-    """Print jax pytree in a human readable way."""
-
-    pp = pprint.PrettyPrinter(indent=2)
-    pp.pprint(convert_to_json_compatible(t))
