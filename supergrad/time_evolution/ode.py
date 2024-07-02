@@ -41,7 +41,7 @@ def ode_expm(func,
              astep=100,
              trotter_order=None,
              progress_bar=False,
-             custom_vjp=None,
+             custom_vjp=True,
              pb_fwd_ad=False,
              compatibility_mode=False):
     """ODE solver using the matrix exponentiation for the propagators at each time
@@ -76,8 +76,8 @@ def ode_expm(func,
         pb_fwd_ad (bool) : whether to config progress bar as forward mode
             automatic differentiation.
         compatibility_mode (bool) : whether to use the compatible mode for `func`.
-            We disable compatible mode for the quantum system, where the evolution
-            operator is not depend on `y`, so we could pass 0 to the `func` directly.
+            We disable compatible mode to reduce computational cost when the evolution
+            operator is not depend on `y`, so we could let `y` equals to 0 in the `func`.
 
 
     Returns:
