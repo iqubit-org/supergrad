@@ -55,6 +55,8 @@ In general, we will use GHz and ns as units for energy and time parameters.
 
 ### Fluxonium with multi-path coupling (Main example)
 
+[The jupyter notebook](https://github.com/iqubit-org/supergrad/blob/main/examples/fluxonium_multipath_coupling/fluxonium_mpcoupling_6q_cnot.ipynb)
+
 This example is based on Nguyen, L. B. et al. Blueprint for a High-Performance Fluxonium Quantum Processor. PRX Quantum 3, 037001 (2022).
 We simulate a 6 Fluxonium qubit system from an underlying periodic lattice.
 Idling hamiltonian of the system is
@@ -83,12 +85,16 @@ More details can be found in [Ni, X. et al. Superconducting processor design opt
 
 ### Transmon with tunable couplers
 
+[The jupyter notebook](https://github.com/iqubit-org/supergrad/blob/main/examples/transmon_coupler/transmon_5q_x.ipynb)
+
 This example is based on Xu, Y. et al. High-Fidelity, High-Scalability Two-Qubit Gate Scheme for Superconducting Qubits. Phys. Rev. Lett. 125, 240503 (2020).
 We simulate a 5 transmon qubit system, where 3 of them are computational qubits and the other 2 are the couplers.
 We compute the time-evolution and the Pauli error rates for
 simultaneous single-qubit X gates.
 
 ### Fluxonium parameter fitting from experimental spectrum data
+
+[The jupyter notebook](https://github.com/iqubit-org/supergrad/blob/main/examples/spectrum_fitting_fluxonium/spectrum_fitting.ipynb)
 
 This is a quite different application compared to above ones.
 Here we try to infer the parameters of the system from spectrum data from experiments.
