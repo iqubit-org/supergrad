@@ -1,3 +1,4 @@
+import copy
 from typing import Union, Tuple
 import networkx as nx
 import jsonschema
@@ -96,15 +97,21 @@ def convert_sgm_to_networkx(data: dict) -> nx.Graph:
     # Keys that used in graph, not data
     list_top = ["pulse", "compensation"]
 
-    dic_common = dict([(x["name"], x["arguments"]) for x in data["common"]])
-    for node1 in data["nodes"]:
-        id1 = node1["id"]
-        arg = node1.get("arguments")
-        if isinstance(arg, str):
-            arguments = dic_common.get(arg)
-            if arguments is None:
-                raise ValueError(f"Cannot find common arguments with name : {arg}")
-            node1["arguments"] = arguments
+    dic_common = dict([(x["name"], x["include"]) for x in data["common"]])
+    for node1base in data["nodes"]:
+        id1 = node1base["id"]
+        # Add common part
+        common_name = node1base.get("include_param", None)
+        node1t = copy.deepcopy(node1base)
+        node1 = {}
+        if common_name is not None:
+            common_params = dic_common.get(common_name)
+            if common_params is None:
+                raise ValueError(f"Cannot find common arguments with name : {common_name}")
+            node1.update(copy.deepcopy(common_params))
+            del node1t["include_param"]
+        node1.update(node1t)
+        # Convert unit
         node1 = convert_children_to_data_array(node1, energy_scale)
         # Check other top level data
         for top in list_top:

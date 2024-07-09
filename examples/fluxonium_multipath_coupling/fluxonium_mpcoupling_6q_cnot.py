@@ -22,11 +22,16 @@ unitary_order = ['q02', 'q03', 'q12', 'q13', 'q22', 'q23']
 
 # instance the quantum processor graph, and choose a subset for time evolution
 graph = CNOTGatePeriodicGraphOpt(seed=1)
-qubit_subset = graph.subgraph(unitary_order)
+graph.set_all_node_attr(truncated_dim=truncated_dim)
+if add_random:
+    graph.add_lcj_params_variance_to_graph()
+qubit_subset = graph.subscgraph(unitary_order)
+qubit_subset.share_params = share_params
+qubit_subset.unify_coupling = unify_coupling
+
 opt = 'scipy'
 
-evo = Evolve(qubit_subset, truncated_dim, add_random, share_params,
-             unify_coupling, compensation_option)
+evo = Evolve(qubit_subset)
 
 # Compute the order of qubits in qubit_subset related to unitary_order
 qubit_order = [unitary_order.index(key) for key in qubit_subset.sorted_nodes]
@@ -37,8 +42,6 @@ unitary = permute(tensor(*([cnot()] * 3)), [2] * len(qubit_subset.nodes),
 
 # %%
 def infidelity(params, unitary):
-    params = hk.data_structures.merge(evo.all_params, params)
-    # Compute the time evolution unitary in the eigenbasis.
     sim_u = evo.eigen_basis(params)
     # calculate fidelity
     fidelity_vz, _ = compute_fidelity_with_1q_rotation_axis(unitary,
@@ -50,29 +53,29 @@ def infidelity(params, unitary):
 
 # %%
 # list the parameters that will be updated during the optimization
-params = {
-    'q02_pulse_rampcos': {
+params = {'nodes':{
+    'q02': { 'pulse' : {'p1':{
         'amp': jnp.array(0.18128846),
         'omega_d': jnp.array(2.58934559),
         'phase': jnp.array(-0.24290228),
         't_plateau': jnp.array(69.93608145),
         't_ramp': jnp.array(29.92806488)
-    },
-    'q12_pulse_rampcos': {
+    }}},
+    'q12': { 'pulse' : {'p1': {
         'amp': jnp.array(0.17872194),
         'omega_d': jnp.array(4.19989714),
         'phase': jnp.array(-0.01543561),
         't_plateau': jnp.array(69.95327862),
         't_ramp': jnp.array(29.94562879)
-    },
-    'q22_pulse_rampcos': {
+    }}},
+    'q22': { 'pulse' : {'p1': {
         'amp': jnp.array(0.23370657),
         'omega_d': jnp.array(3.65018191),
         'phase': jnp.array(-0.50006247),
         't_plateau': jnp.array(69.96302405),
         't_ramp': jnp.array(29.98769304)
-    },
-}
+    }}},
+}}
 # %%
 if __name__ == '__main__':
     print(infidelity(params, unitary))  # -3.1848728

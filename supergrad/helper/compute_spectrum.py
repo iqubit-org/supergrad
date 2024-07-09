@@ -10,13 +10,6 @@ class Spectrum(Helper):
 
     Args:
         graph (SCGraph): The graph containing all Hamiltonian parameters.
-        truncated_dim (int): desired dimension of the truncated qubit subsystem
-        add_random (bool): If true, will add random deviations to the device parameters
-        share_params (bool): Share device parameters between the qubits that
-            have the same shared_param_mark. This is used only for gradient computation.
-            One must define `shared_param_mark` in the `graph.nodes['qubit']['shared_param_mark']`.
-        unify_coupling (bool): Let all couplings in the quantum system be the same.
-            TODO: if set to true, which coupling will be used to do the computation?
     """
 
     def __init__(self,

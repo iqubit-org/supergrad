@@ -21,8 +21,6 @@ class Evolve(Helper):
     Args:
         graph (SCGraph): The graph containing both Hamiltonian and control
             parameters.
-        coupler_subsystem: Qubits which we set to `|` 0> initially and at the end.
-            TODO: make this more general.
         solver: the type of time evolution solver, should be in ['ode_expm', 'odeint'].
         options: the arguments will be passed to solver.
             See `supergrad.time_evolution.sesolve`.
@@ -30,20 +28,17 @@ class Evolve(Helper):
 
     def __init__(self,
                  graph,
-                 coupler_subsystem=None,
                  solver='ode_expm',
                  options=None,
                  *args,
                  **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        if coupler_subsystem is None:
-            coupler_subsystem = []
         if options is None:
             options = {'astep': 2000, 'trotter_order': 1}
 
         self.graph: SCGraph = graph
-        self.coupler_subsystem = coupler_subsystem
+        self.coupler_subsystem = graph.get_subsystem_in_category("coupler")
         if solver not in ['ode_expm', 'odeint']:
             raise NotImplementedError(
                 f'Solver {solver} has not been implemented.')
@@ -62,7 +57,7 @@ class Evolve(Helper):
         self.hilbertspace = graph.convert_graph_to_quantum_system()
         self.hamiltonian_component_and_pulseshape, self.pulse_endtime = graph.convert_graph_to_pulse_lst(
             self.hilbertspace)
-        sqc = SingleQubitCompensation(graph, self.coupler_subsystem)
+        sqc = SingleQubitCompensation(graph, graph.get_subsystem_in_category("data"))
         self.pre_unitaries, self.post_unitaries = sqc.create_unitaries()
 
     def _prepare_initial_states(self, psi_list=None):

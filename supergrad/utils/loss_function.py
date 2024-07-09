@@ -1,5 +1,6 @@
 from functools import reduce
 import numpy as np
+import jax
 import jax.numpy as jnp
 from jax.scipy.stats import cauchy
 import haiku as hk
@@ -62,7 +63,7 @@ def wrapper_yaqcs_data(data):
     ])
 
 
-def wrapper_phi_freq(bias_list, freq_list, periodic=True):
+def wrapper_phi_freq(params, bias_list, freq_list, periodic=True):
     """A wrapper that format `bias_list` and `freq_list`.
 
     Args:
@@ -73,8 +74,8 @@ def wrapper_phi_freq(bias_list, freq_list, periodic=True):
     bias_list = jnp.asarray(bias_list)
     freq_list = jnp.asarray(freq_list) / 1e9  # unit in GHz
     # convert bias to phi_ext/phi_0
-    bias_phi0 = hk.get_parameter('bias_phi0', [], init=jnp.zeros)
-    bias_phipi = hk.get_parameter('bias_phipi', [], init=jnp.zeros)
+    bias_phi0 = params['bias_phi0']
+    bias_phipi = params['bias_phipi']
 
     phi_list = (bias_list - bias_phi0) / (bias_phipi - bias_phi0) / 2
     if periodic:
@@ -96,9 +97,10 @@ def truncated_mse(a, b, trancated_percentile: int = 95):
     return jnp.sum(mse)
 
 
-def _cal_spectrum_vs_phi(phi, phi_max=5 * np.pi, num_basis=50, **kwargs):
+def _cal_spectrum_vs_phi(params, phi, phi_max=5 * np.pi, num_basis=50, **kwargs):
     # initial quantum system
-    fq = Fluxonium(phiext=0.0, phi_max=phi_max, num_basis=num_basis, **kwargs)
+    fq = Fluxonium(phiext=0.0, phi_max=phi_max, num_basis=num_basis,
+                   ec=params['ec'], ej=params['ej'], el=params['el'], **kwargs)
 
     # calculate spectrum
     def calc_spectrum_vs_phi(phi):
@@ -107,7 +109,7 @@ def _cal_spectrum_vs_phi(phi, phi_max=5 * np.pi, num_basis=50, **kwargs):
 
     # vmap it
     if len(phi) > 1:
-        return hk.vmap(calc_spectrum_vs_phi, split_rng=False)(phi)
+        return jax.vmap(calc_spectrum_vs_phi)(phi)
     else:
         return calc_spectrum_vs_phi(phi)
 
@@ -152,9 +154,7 @@ def _cal_transmission_vs_phi(phi,
         return calc_transmission_vs_phi(phi)
 
 
-@hk.without_apply_rng
-@hk.transform
-def loss_fit_spectrum(bias_list, freq_list, end_level, periodic=True):
+def loss_fit_spectrum(params, bias_list, freq_list, end_level, periodic=True):
     """Fits parameters from fluxonium spectrum vs bias data.
 
     Args:
@@ -164,7 +164,7 @@ def loss_fit_spectrum(bias_list, freq_list, end_level, periodic=True):
         periodic (bool): Using periodic boundary condition of phi
             when the target phi is beyond the phi basis range.
     """
-    phi_list, freq_list = wrapper_phi_freq(bias_list, freq_list, periodic)
+    phi_list, freq_list = wrapper_phi_freq(params['spectrum'], bias_list, freq_list, periodic)
 
     spec_out = _cal_spectrum_vs_phi(phi_list)
     sim_freq_list = spec_out[:, end_level] - spec_out[:, 0]
@@ -172,13 +172,13 @@ def loss_fit_spectrum(bias_list, freq_list, end_level, periodic=True):
     return truncated_mse(sim_freq_list, freq_list, 100)
 
 
-@hk.without_apply_rng
-@hk.transform
-def loss_kl_div(xs, ys, exp_array, plot=False):
+def loss_kl_div(params, xs, ys, exp_array, plot=False):
     """Loss function for fit qubit spectra by the Kullback-Leibler divergence.
 
     Args:
-        data: dateset from experiment.
+        xs: experiment data X axis (bias)
+        ys: experiment data Y axis (frequency)
+        exp_array: experiment data value
     """
     # Normalize
     data_exp = jnp.abs(exp_array -
@@ -193,14 +193,14 @@ def loss_kl_div(xs, ys, exp_array, plot=False):
         axs[0].set_ylabel(r'$\varepsilon [\text{GHz}] $')
 
     # convert bias to phi_ext/phi_0
-    phi_list, ys = wrapper_phi_freq(xs, ys)
+    phi_list, ys = wrapper_phi_freq(params["spectrum"], xs, ys)
 
-    spec_out = _cal_spectrum_vs_phi(phi_list)
+    spec_out = _cal_spectrum_vs_phi(params['fluxonium'], phi_list)
     peak_list = spec_out[:, 1] - spec_out[:, 0]
 
     # set a bandwidth
-    bandwidth = hk.get_parameter('bandwidth', [], init=jnp.zeros)
-    noise = hk.get_parameter('noise', [], init=jnp.zeros)
+    bandwidth = params['spectrum']['bandwidth']
+    noise = params['spectrum']['noise']
     sim_data = []
     for peak in peak_list:
         sim_data.append(cauchy.pdf(ys, loc=peak, scale=bandwidth))

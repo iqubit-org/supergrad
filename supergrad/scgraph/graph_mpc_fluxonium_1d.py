@@ -1,11 +1,13 @@
 from copy import deepcopy
 from collections import deque
 
+import jax.numpy as jnp
 import numpy as np
 import networkx as nx
 
 from supergrad.scgraph.graph import SCGraph
 from supergrad.helper.compute_spectrum import Spectrum
+from supergrad.utils.format_conv import convert_to_device_array_dict
 
 
 class MPCFluxonium1D(SCGraph):
@@ -68,14 +70,14 @@ class MPCFluxonium1D(SCGraph):
             params = deque(
                 [fluxonium_type_1, fluxonium_type_2, fluxonium_type_3])
             for i in range(n_qubit):
-                temp_graph.nodes[i].update(params[i % 3])
+                temp_graph.nodes[i].update(convert_to_device_array_dict(params[i % 3]))
             # relabel nodes
             label_mapping = dict((label, ''.join(['fm', str(label)]))
                                  for label in temp_graph.nodes)
             temp_graph = nx.relabel_nodes(temp_graph, label_mapping)
             # adding attributes to edges
             for edge in temp_graph.edges:
-                temp_graph.edges[edge].update(mp_coupling)
+                temp_graph.edges[edge].update(convert_to_device_array_dict(mp_coupling))
             # save temp_graph
             self.add_nodes_from(temp_graph.nodes.data())
             self.add_edges_from(temp_graph.edges.data())
@@ -84,43 +86,35 @@ class MPCFluxonium1D(SCGraph):
             # add variance to el ec ej params
             self.add_lcj_params_variance_to_graph(multi_err=0.01, seed=seed)
 
-    def compute_static_properties(self, list_drive_subsys, add_random,
-                                  **kwargs):
+    def compute_static_properties(self, list_drive_subsys, **kwargs):
         """Compute static properties of the model.
 
         Args:
             list_drive_subsys: list of driving subsystem, each element is a list
                 of qubit names
-            add_random: If true, will add random variance to the device parameters
             kwargs: other parameters for the Spectrum class
         """
         # Compute the model once
         spec = Spectrum(self, **kwargs)
-        if add_random:
-            self.add_lcj_params_variance_to_graph(seed=128213)
         list_energy_nd, list_n_mat, list_phi_mat, transform_matrix = spec.get_model_eigen_basis(
             spec.all_params, self.sorted_nodes, list_drive_subsys)
         return list_energy_nd, list_n_mat, list_phi_mat, transform_matrix
 
-    def compute_static_properties_minimal(self, list_drive_subsys, add_random,
-                                          **kwargs):
+    def compute_static_properties_minimal(self, list_drive_subsys, **kwargs):
         """Compute static properties of the minimal drive subsystem, as an
         approach to find quantum gate initial guesses.
 
         Args:
             list_drive_subsys: list of driving subsystem, each element is a list
                 of qubit names
-            add_random: If true, will add random variance to the device parameters
             kwargs: other parameters for the Spectrum class
         """
         list_sub_energy_nd = []
         list_sub_n_mat = []
         list_sub_phi_mat = []
         for drive_subsys in list_drive_subsys:
-            spec = Spectrum(self.subgraph(drive_subsys),
+            spec = Spectrum(self.subscgraph(drive_subsys),
                             **kwargs)
-            if add_random:
-                self.add_lcj_params_variance_to_graph(seed=128213)
             list_energy_nd, list_n_mat, list_phi_mat, _ = spec.get_model_eigen_basis(
                 spec.all_params, spec.graph.sorted_nodes, [drive_subsys])
             list_sub_energy_nd.append(list_energy_nd[0])
@@ -161,10 +155,9 @@ class MPCFluxonium1D(SCGraph):
                         ix_control_list: int,
                         ix_target_list: int,
                         tg_list: int,
-                        add_random: bool,
                         ar_crosstalk=None,
                         pulse_type: str = "cos",
-                        minimal_approach=False):
+                        minimal_approach=True):
         """Creates CR pulses in the quantum processor.
 
         This function supports any multipath coupling model implemented.
@@ -177,7 +170,6 @@ class MPCFluxonium1D(SCGraph):
             ix_target_list: list of the target qubit index, indicates the target
                 qubit that matched the drive frequency.
             tg_list: list of the gate time
-            add_random: If true, will add random variance to the device parameters
             ar_crosstalk: the crosstalk matrix.  `ar[j,i]` means
                 the pulse `A` applied on `i` qubit leads to `ar[j,i]*A` on `j`
                 qubit.
@@ -203,10 +195,10 @@ class MPCFluxonium1D(SCGraph):
                 [self.sorted_nodes[ix] for ix in sorted([control, target])])
         if minimal_approach:
             list_energy_nd, list_n_mat, list_phi_mat, transform_matrix = \
-                self.compute_static_properties_minimal(list_drive_subsys, add_random)
+                self.compute_static_properties_minimal(list_drive_subsys)
         else:
             list_energy_nd, list_n_mat, list_phi_mat, transform_matrix = \
-                self.compute_static_properties(list_drive_subsys, add_random)
+                self.compute_static_properties(list_drive_subsys)
 
         for control, target, tg, drive_subsys, energy_nd, n_mat, phi_mat in zip(
                 ix_control_list, ix_target_list, tg_list, list_drive_subsys,
@@ -240,6 +232,7 @@ class MPCFluxonium1D(SCGraph):
                 "pulse_type": pulse_type,
                 "operator_type": "phi_operator",
                 "delay": 0.0,
+                'modulate_wave': True
             }
 
             if ar_crosstalk is None:
@@ -254,7 +247,6 @@ class MPCFluxonium1D(SCGraph):
     def create_single_qubit_pulse(self,
                                   ix_qubit_list: int,
                                   tg_list: int,
-                                  add_random: bool,
                                   ar_crosstalk=None,
                                   factor=0.5,
                                   pulse_type: str = "cos",
@@ -269,7 +261,6 @@ class MPCFluxonium1D(SCGraph):
             ix_qubit_list: target qubit index. `ix_pair` is a model-dependent
             parameter, is the qubit index, indicates where to apply the drive.
             tg_list: the gate time
-            add_random: If true, will add random deviations to the device parameters
             ar_crosstalk: the crosstalk matrix.  `ar[j,i]` means
                 the pulse `A` applied on `i` qubit leads to `ar[j,i]*A` on `j`
                 qubit.
@@ -286,10 +277,10 @@ class MPCFluxonium1D(SCGraph):
         list_drive_subsys = [[self.sorted_nodes[ix]] for ix in ix_qubit_list]
         if minimal_approach:
             list_energy_nd, list_n_mat, list_phi_mat, transform_matrix = \
-                self.compute_static_properties_minimal(list_drive_subsys, add_random)
+                self.compute_static_properties_minimal(list_drive_subsys)
         else:
             list_energy_nd, list_n_mat, list_phi_mat, transform_matrix = \
-                self.compute_static_properties(list_drive_subsys, add_random)
+                self.compute_static_properties(list_drive_subsys)
 
         for ix_qubit, tg, energy_nd, n_mat, phi_mat in zip(
                 ix_qubit_list, tg_list, list_energy_nd, list_n_mat,
@@ -305,11 +296,12 @@ class MPCFluxonium1D(SCGraph):
             dic_pulse = {
                 'amp': factor * 2 / tg / phid * 2 * np.pi,
                 'omega_d': fd,
-                "phase": 0.0,
-                "length": float(tg),
+                "phase": jnp.array(0.0),
+                "length": jnp.array(tg),
                 "pulse_type": pulse_type,
                 "operator_type": "phi_operator",
                 "delay": 0.0,
+                'modulate_wave': True
             }
 
             if ar_crosstalk is None:

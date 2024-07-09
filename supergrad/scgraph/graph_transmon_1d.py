@@ -15,7 +15,7 @@ transmon_1 = {
         'ng': 0.5,
         'num_basis': 62,
         'n_max': 31,
-        'phiext': 0.,
+        'phiej': 0.,
     }
 }
 transmon_2 = {
@@ -27,7 +27,7 @@ transmon_2 = {
         'ng': 0.5,
         'num_basis': 62,
         'n_max': 31,
-        'phiext': 0.,
+        'phiej': 0.,
     }
 }
 coupler_1 = {
@@ -41,7 +41,7 @@ coupler_1 = {
         'n_max': 31,
         'truncated_dim': 3,
         'd': 0,
-        'phiext': 0.,
+        'phiej': 0.,
     }
 }
 g_12 = {
@@ -76,7 +76,8 @@ class Tmon1D(SCGraph):
         # adding attributes to nodes
         params = [transmon_1, coupler_1, transmon_2, coupler_1]
         for i in range(8):
-            temp_graph.add_node(i, **params[i % 4])
+            params_i = params[i % 4]
+            temp_graph.add_node(i, **params_i, device_category="coupler" if "d" in params_i["arguments"] else "data")
 
         # adding attributes to edges
         tc_couplings = {
@@ -115,15 +116,18 @@ class XGateTmon1D(Tmon1D):
         super().__init__(seed)
         self.add_node(
             'q0', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.0922632),
                     'length': jnp.array(39.99841052),
                     'omega_d': jnp.array(31.89213402),
                     'phase': jnp.array(-0.06459036),
                     'pulse_type': 'cos',
                     'operator_type': 'n_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'arguments': {
+                        'modulate_wave': True
+                    }
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(0.0086247),
                     'post_comp': jnp.array(-0.0086247)
@@ -131,15 +135,18 @@ class XGateTmon1D(Tmon1D):
             })
         self.add_node(
             'q2', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.10390872),
                     'length': jnp.array(39.92211365),
                     'omega_d': jnp.array(27.99554391),
                     'phase': jnp.array(0.05805683),
                     'pulse_type': 'cos',
                     'operator_type': 'n_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'arguments': {
+                        'modulate_wave': True
+                    }
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(0.3714724),
                     'post_comp': jnp.array(-0.3714724)
@@ -147,15 +154,18 @@ class XGateTmon1D(Tmon1D):
             })
         self.add_node(
             'q4', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.09196213),
                     'length': jnp.array(39.88357291),
                     'omega_d': jnp.array(31.97277349),
                     'phase': jnp.array(-0.07858071),
                     'pulse_type': 'cos',
                     'operator_type': 'n_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'arguments': {
+                        'modulate_wave': True
+                    }
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(0.79958712),
                     'post_comp': jnp.array(-0.79958712)

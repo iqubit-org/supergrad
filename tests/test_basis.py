@@ -21,12 +21,12 @@ def test_transmon_basis():
             self.tmon = Transmon(ec=1.2,
                                  ej=30.02,
                                  ng=0.3,
-                                 phiext=0.,
+                                 phiej=0.,
                                  basis=self.kwargs['basis'],
                                  truncated_dim=6,
                                  drive_for_state_phase='charge',
                                  n_max=31,
-                                 constant=True)
+                                 )
 
         @supergrad.Helper.decorator_auto_init
         def energy_spectrum(self):
@@ -47,7 +47,6 @@ def test_transmon_basis():
     # compare operator
     assert np.allclose(tmon_charge.operator({}), tmon_phase.operator({}))
 
-@pytest.mark.skip(reason="Tunable transmon not implemented")
 def test_tunable_transmon_basis():
     # construct model
     class ExploreTransmon(supergrad.Helper):
@@ -60,13 +59,13 @@ def test_tunable_transmon_basis():
             self.tmon = Transmon(ec=0.5,
                                  ej=50.0,
                                  d=0.01,
-                                 phiext=0.1 * 2 * np.pi,
+                                 phiej=0.1 * 2 * np.pi,
                                  ng=0.3,
                                  basis=self.kwargs['basis'],
                                  truncated_dim=6,
                                  drive_for_state_phase='charge',
                                  n_max=31,
-                                 constant=True)
+                                 )
 
         @supergrad.Helper.decorator_auto_init
         def energy_spectrum(self):
@@ -106,7 +105,7 @@ def test_fluxonium_basis():
                                   drive_for_state_phase='charge',
                                   put_phiext_on_inductor=True,
                                   phi_max=5 * np.pi,
-                                  constant=True)
+                                  )
 
         @supergrad.Helper.decorator_auto_init
         def energy_spectrum(self):

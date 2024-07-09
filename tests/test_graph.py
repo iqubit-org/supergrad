@@ -10,7 +10,7 @@ from supergrad.utils.format_conv import (convert_to_json_compatible,
 from .data.data_graph import CNOTGatePeriodicGraph
 
 graph = CNOTGatePeriodicGraph(seed=1)
-qubit_subset = graph.subgraph(['q02', 'q03', 'q12', 'q13', 'q22', 'q23'])
+qubit_subset = graph.subscgraph(['q02', 'q03', 'q12', 'q13', 'q22', 'q23'])
 
 
 def count_params(dic):
@@ -20,7 +20,6 @@ def count_params(dic):
 def graph_to_quantum_system(graph: SCGraph = graph,
                             add_random=False,
                             share_params=False):
-
     class TestGraph(supergrad.Helper):
 
         def init_quantum_system(self, params):
@@ -85,8 +84,8 @@ def test_update_params(share_params=False):
     # update graph parameters
     old_qubit_subset = copy.deepcopy(qubit_subset_temp)
     qubit_subset_temp.update_parameters(load_params)
-    hk_0, params_0 = graph_to_quantum_system(old_qubit_subset)
-    hk_1, params_1 = graph_to_quantum_system(qubit_subset_temp)
+    hk_0, params_0 = graph_to_quantum_system(old_qubit_subset, share_params=share_params)
+    hk_1, params_1 = graph_to_quantum_system(qubit_subset_temp, share_params=share_params)
     assert np.allclose(tree_leaves(hk_0),
                        tree_leaves(tree_map(lambda x: x * -1.0j, hk_1)))
     assert np.allclose(tree_leaves(params_0),

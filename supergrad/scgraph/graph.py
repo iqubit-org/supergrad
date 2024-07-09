@@ -1,5 +1,6 @@
 import copy
-from typing import Dict, Any, Optional, Literal, List
+# Key presented means it uses shared parameter
+from typing import Dict, Any, Optional, Literal, List, Callable
 import jax
 import jax.numpy as jnp
 import networkx as nx
@@ -18,6 +19,7 @@ from supergrad.quantum_system.interaction import (InteractingSystem,
                                                   parse_interaction)
 
 CompensationType = Literal["no_comp", "only_vz", "arbit_single"]
+DeviceCategoryType = Literal["data", "ancilla", "coupler", "readout"]
 
 # please register module in the following dictionary for graph converting
 artificial_atom_dict = {
@@ -101,23 +103,26 @@ key_compensation = "compensation"
 #: Keys to host sub-node, control related (not device related)
 list_top_key_control = ["pulse", "compensation"]
 
-#: Top groups that are fully not differentiable
-list_not_differentiable_top = ["deviation", "arguments"]
+#: Keys used in graph to organize the data, not device/control parameters
+list_graph_only_key = ["system_type", "device_category", "operator_type", "pulse_type", "crosstalk", "deviation", "arguments"] + [key_share_mark]
+
+#: Keys that are not for device parameters
+list_non_device_key = list_graph_only_key + list_top_key_control
+
 #: Keys that are not differentiable and excluded from node parameter passing
-list_not_differentiable_key = ["system_type", "operator_type", "pulse_type", "delay", "crosstalk"] + [key_share_mark]
-list_not_differentiable_key_top = list_not_differentiable_key + list_not_differentiable_top
+list_not_differentiable_key = list_graph_only_key + ["delay"]
 
 
 def is_key_device_param(key: str) -> bool:
-    """Checks if a key belongs to device category group instead of control category.
+    """Checks if a key belongs to device group instead of control.
 
     Args:
         key: the key of the item
 
     Returns:
-        if the key belongs to device category
+        if the key belongs to device
     """
-    return key not in list_top_key_control and key != key_deviation
+    return key not in list_non_device_key
 
 
 def is_differentiable_param(key: str) -> bool:
@@ -131,7 +136,7 @@ def is_differentiable_param(key: str) -> bool:
     Returns:
         if the value is a differentiable variable
     """
-    return key not in list_not_differentiable_key_top
+    return key not in list_not_differentiable_key
 
 
 def get_quantum_system_params(dic: Dict[str, Any]) -> Dict[str, Any]:
@@ -144,6 +149,13 @@ def get_quantum_system_params(dic: Dict[str, Any]) -> Dict[str, Any]:
         a dictionary with only quantum system related parameters
     """
     return dict([(key, val) for key, val in dic.items() if is_differentiable_param(key) and is_key_device_param(key)])
+
+
+def concat_pulse_amp_coef(create_pulse: Callable, conv_amp: Callable):
+    def create_amp(*args, **kwargs):
+        return conv_amp(create_pulse(*args, **kwargs))
+
+    return create_amp
 
 
 class SCGraph(nx.Graph):
@@ -176,7 +188,7 @@ class SCGraph(nx.Graph):
             self.seed = seed
 
         # Set version
-        version = attr.get("version", 0)
+        version = attr.get("version", 2)
         self.version = version
 
     @property
@@ -227,10 +239,33 @@ class SCGraph(nx.Graph):
                 variance[item] = params_variance[i]
             node['deviation'] = variance
 
-    def set_compensation(self, compensation_option: CompensationType = "only_vz"):
+    def set_all_node_attr(self, **kwargs):
+        """Sets given attributes on all nodes.
+
+        Mostly used for "truncated_dim" parameter.
+
+        Note this function support deep update, so one can pass nested dict.
+
+        Args:
+            **kwargs: dictionary of attributes to set. Support nested dict.
+
+        """
+        for node_name in self.sorted_nodes:
+            node = NodeView(self)[node_name]
+            deep_update_dict(node, kwargs, append=True)
+        return
+
+    def set_compensation(self, compensation_option: CompensationType = "only_vz", update_only: bool = True):
         """Sets all compensation to a given type in the graph, values to 0.
 
-        Note, only devices already have compensation will be updated.
+        Compensation are applied to given data qubits, as a simplified method to represent the easy part
+        (single qubit gates) when study two-qubit gates.
+
+        By default, only devices already have compensation will be updated (update_only = True).
+        If not `update_only`, then it will set all devices in "data" category.
+
+        We assume the compensation options are only used in the devices belong to "data" category
+        and no additional checks are done here.
 
         Args:
             compensation_option: Set single qubit compensation strategy, should be in
@@ -238,14 +273,18 @@ class SCGraph(nx.Graph):
                 compensation. 'only_vz' means we will do single-qubit Z-rotation
                 before and after the time evolution. 'arbit_single' means we will do
                 arbitrary single-qubit rotation before and after the time evolution.
+            update_only: Whether to change only nodes already with compensation options, or all "data" category nodes.
 
         """
         dic_shape = {"no_comp": 0, "only_vz": [], "arbit_single": [3]}
         shape = dic_shape[compensation_option]
+
+        list_data_node_names = self.get_subsystem_in_category("data")
+
         for node_name in self.sorted_nodes:
             node = NodeView(self)[node_name]
-            if key_compensation in node:
-                node[key_compensation] = jnp.zeros(shape)
+            if (update_only and key_compensation in node) or (not update_only and node_name in list_data_node_names):
+                node[key_compensation] = {"pre_comp": jnp.zeros(shape), "post_comp": jnp.zeros(shape)}
         return
 
     @property
@@ -265,9 +304,8 @@ class SCGraph(nx.Graph):
     def share_params(self, val: bool):
         # Note we must clean the cache
         if self.graph["share_params"] != val:
-            self.map_share_edge = None
-            self.map_share_node = None
             self.graph["share_params"] = val
+            self._prepare_share_param()
 
     @property
     def unify_coupling(self):
@@ -281,12 +319,14 @@ class SCGraph(nx.Graph):
     def unify_coupling(self, val: bool):
         # Note we must clean the cache
         if self.graph["unify_coupling"] != val:
-            self.map_share_edge = None
-            self.map_share_node = None
             self.graph["unify_coupling"] = val
+            self._prepare_share_param()
 
-    def subgraph(self, nodes: list) -> "SCGraph":
+    def subscgraph(self, nodes: list) -> "SCGraph":
         """Returns a SubGraph view of the subgraph induced on `nodes` and apply functions in SCGraph.
+
+        Unlike the Graph in Networkx, this returns a deepcopy as function on main graph
+        and the subgraph in most cases are not correlated. Also the parameter sharing requires re-computation.
 
         Args:
             nodes: A container of nodes which will be iterated through once.
@@ -294,19 +334,36 @@ class SCGraph(nx.Graph):
         Returns:
             A subgraph view of the graph.
         """
-        g: SCGraph = super().subgraph(nodes)
+        g: SCGraph = copy.deepcopy(self.subgraph(nodes))
         g._prepare_share_param()
         return g
+
+    def get_subsystem_in_category(self, category: DeviceCategoryType) -> List[str]:
+        """Returns the subsystem that belongs to a given category.
+
+        The category comes from "device_category" key in the nodes.
+        It can be inside/outside the "arguments" part of a node.
+
+        If the key does not presented, the default value is "data".
+
+        Args:
+            category: the category of devices, including "data", "ancilla", "coupler" and "readout"
+
+        Returns:
+            a list of node names that belongs to the given category.
+        """
+        key = "device_category"
+        default = "data"
+        nv = NodeView(self)
+        return [x for x in self.sorted_nodes if (nv[x].get(key, default) == category)]
 
     def _prepare_share_param(self):
         """Computes necessary data structure to share the parameters between nodes/edges.
 
-        Note this result is cached in the class. Change `share_params` of the object can clean the cache.
+        The cache `map_share_node` and `map_share_edge` hold the relationship.
+        Any nodes/edges not presented are treated as use parameters of themselves.
 
         """
-        if self.map_share_node is not None and self.map_share_edge is not None:
-            return
-
         if not self.share_params:
             self.map_share_node = {}
             self.map_share_edge = {}
@@ -358,18 +415,28 @@ class SCGraph(nx.Graph):
 
         return
 
-    def convert_graph_to_quantum_system(self, **kwargs):
+    def convert_graph_to_quantum_system(self, **kwargs) -> InteractingSystem:
+        """Convert a networkX graph to SuperGrad quantum system.
+
+        There are two versions, v0 is for Haiku version and v2 is for the graph-data version (currently used).
+        The version can be selected by `self.version`.
+
+        Arguments:
+            kwargs: arguments that are supposed to be passed to nodes.
+                This has the lowest priority and is overwritten by any other configuration.
+
+        Returns:
+            system static Hamiltonian
+        """
         if self.version == 0:
             return self.convert_graph_to_quantum_system_v0(**kwargs)
-        if self.version == 1:
-            return self.convert_graph_to_quantum_system_v1(**kwargs)
         elif self.version == 2:
             return self.convert_graph_to_quantum_system_v2(**kwargs)
         else:
             raise ValueError(f"Wrong version {self.version}")
 
     def convert_graph_to_quantum_system_v2(self,
-                                        **kwargs):
+                                           **kwargs) -> InteractingSystem:
         """Convert a networkX graph to SuperGrad quantum system.
         """
         # convert nodes to artificial atoms
@@ -415,70 +482,8 @@ class SCGraph(nx.Graph):
                         op1=op1,
                         op2=op2,
                         name=_parse_edges_name(k, q1, q2)))
-                interaction_list.append(interaction_pair)
+            interaction_list.append(interaction_pair)
 
-        # unflatten interaction list
-        inter_list = []
-        for inter_pair in interaction_list:
-            inter_list.extend(inter_pair)
-        return InteractingSystem(subsystem_list, inter_list)
-
-    def convert_graph_to_quantum_system_v1(self, **kwargs):
-        unify_coupling = self.unify_coupling
-        share_params = self.share_params
-        add_random = False
-
-        if unify_coupling:
-            assert share_params is True
-        # convert nodes to artificial atoms
-        subsystem_list = []
-        type_list = []
-        for node_name in self.sorted_nodes:
-            node = NodeView(self)[node_name]
-            node_type = node.get('shared_param_mark', node_name)
-            node_kwargs = copy.deepcopy(kwargs)
-            # update global kwargs with graph kwargs
-            node_kwargs.update(node.get('arguments', {}))
-            node_kwargs.update(get_quantum_system_params(node))
-            var = None
-            if add_random:
-                var = node.get('deviation', None)
-            subsystem_list.append(artificial_atom_dict[node['system_type']](
-                name=node_name, var=var, **node_kwargs))
-            type_list.append(node_type)
-        subsystem_name_list = self.sorted_nodes
-        interaction_list = []
-        edge_type_list = []
-        for edge in self.sorted_edges:
-            q1, q2 = edge
-            attr = EdgeView(self)[edge]
-            nodes_pair = sorted([q1, q2])
-            edge_type = tuple(
-                NodeView(self)[node].get('shared_param_mark', node)
-                for node in nodes_pair)
-            idx_q1 = subsystem_name_list.index(q1)
-            idx_q2 = subsystem_name_list.index(q2)
-
-
-            interaction_pair = []
-            for k in dict(attr).keys():
-                if k == 'capacitive_coupling':
-                    interaction_pair.append(
-                        parse_interaction(
-                            **attr[k],
-                            op1=subsystem_list[idx_q1].n_operator,
-                            op2=subsystem_list[idx_q2].n_operator,
-                            name=_parse_edges_name(k, q1, q2)))
-                elif k == 'inductive_coupling':
-                    interaction_pair.append(
-                        parse_interaction(
-                            **attr[k],
-                            op1=subsystem_list[idx_q1].phi_operator,
-                            op2=subsystem_list[idx_q2].phi_operator,
-                            name=_parse_edges_name(k, q1, q2)))
-                interaction_list.append(interaction_pair)
-
-            edge_type_list.append(edge_type)
         # unflatten interaction list
         inter_list = []
         for inter_pair in interaction_list:
@@ -488,7 +493,7 @@ class SCGraph(nx.Graph):
     def convert_graph_to_quantum_system_v0(self, **kwargs):
         unify_coupling = self.unify_coupling
         share_params = self.share_params
-        add_random = False
+        add_random = True
 
         if unify_coupling:
             assert share_params is True
@@ -509,14 +514,16 @@ class SCGraph(nx.Graph):
                 mirrored_subsystem.name = node_name
                 if add_random:
                     var = node.get('deviation', None)
-                    mirrored_subsystem.add_lcj_params_variance(var)
                 subsystem_list.append(mirrored_subsystem)
             else:
                 var = None
                 if add_random:
                     var = node.get('deviation', None)
+                if var is not None:
+                    for key, val in var.items():
+                        node_kwargs[key] *= val
                 subsystem_list.append(artificial_atom_dict[node['system_type']](
-                    name=node_name, var=var, **node_kwargs))
+                    name=node_name, **node_kwargs))
             type_list.append(node_type)
         subsystem_name_list = self.sorted_nodes
         interaction_list = []
@@ -607,7 +614,7 @@ class SCGraph(nx.Graph):
             inter_list.extend(inter_pair)
         return InteractingSystem(subsystem_list, inter_list)
 
-    def convert_graph_to_pulse_lst(self, hilbert_space: InteractingSystem,
+    def convert_graph_to_pulse_lst(self, hilbert_space: InteractingSystem, convert_amp=True,
                                    **kwargs):
         """Obtain the pulse list and the max length of all pulses.
         The pulse list contain a list of [wrap_opt, pulse.create_pulse].
@@ -616,6 +623,8 @@ class SCGraph(nx.Graph):
 
         Args:
             hilbert_space: the hilbert space class
+            convert_amp: whether to convert amplitude to the operator coefficients. Default to True.
+                False only when the user want to plot the pulse instead of the coefficients.
             kwargs: The keyword arguments be passed to module `PulseShape`
 
         """
@@ -630,6 +639,12 @@ class SCGraph(nx.Graph):
                 opt_type = v.pop('operator_type')
                 opt = getattr(hilbert_space[node_name], opt_type)
                 pulse_type = v.pop('pulse_type')
+                amp_type = v.pop('amp_type', None)
+                f_amp_coef = lambda x:x
+                if convert_amp:
+                    name_coef = f"{amp_type}_coef_{opt_type}"
+                    if amp_type is not None:
+                        f_amp_coef = getattr(hilbert_space[node_name], name_coef)
                 delay = v.pop('delay', 0.)
                 # update global kwargs with graph kwargs
                 pulse_kwargs = copy.deepcopy(kwargs)
@@ -642,15 +657,29 @@ class SCGraph(nx.Graph):
                                                          "pulse"),
                                                      **pulse_kwargs)
                 wrap_opt = identity_wrap(opt, hilbert_space.subsystem_list)
-                pulse_lst.append([wrap_opt, pulse.create_pulse])
+                # args to be compatible with solver, not used, however
+                f_pulse = concat_pulse_amp_coef(pulse.create_pulse, f_amp_coef)
+                # Note one cannot use lambda here ; jax.jit will treat them as the same function, which is wrong
+                # f_pulse = lambda t, args: f_amp_coef(pulse.create_pulse(t, args))
+                # f_pulse = pulse.create_pulse
+                # f_pulse = lambda t, args: pulse.create_pulse(t, args)
+                # f_pulse = lambda *args, **kwargs: pulse.create_pulse(*args, **kwargs)
+                # def f_pulse(*args, **kwargs):
+                #    return pulse.create_pulse(*args, **kwargs)
+                pulse_lst.append([wrap_opt, f_pulse])
                 pulse_endtime.append(pulse.pulse_endtime)
                 crosstalk = v.pop('crosstalk', None)
                 if crosstalk is not None:
                     for xterm, coeff in crosstalk.items():
                         opt = getattr(hilbert_space[xterm], opt_type)
+                        if convert_amp:
+                            f_amp_coef = lambda x: x
+                            if amp_type is not None:
+                                f_amp_coef = getattr(hilbert_space[xterm], name_coef)
                         wrap_opt = identity_wrap(
                             opt, hilbert_space.subsystem_list, coeff=coeff)
-                        pulse_lst.append([wrap_opt, pulse.create_pulse])
+                        f_pulse = concat_pulse_amp_coef(pulse.create_pulse, f_amp_coef)
+                        pulse_lst.append([wrap_opt, f_pulse])
         return pulse_lst, jnp.max(jnp.array(pulse_endtime))
 
     def update_parameters(self, params: Dict[str, Any]):
@@ -658,6 +687,8 @@ class SCGraph(nx.Graph):
 
         All parameters in the input dictionary must be JAX array,
         and they will overwrite the original graph.
+
+        Throw error if the parameters are invalid.
 
         Args:
             params: the parameters to update.
@@ -675,6 +706,11 @@ class SCGraph(nx.Graph):
             ev = EdgeView(self)
             for (u, v), edge_data in params["edges"].items():
                 deep_update_dict(ev[u, v], edge_data)
+
+        list_valid = ["nodes", "edges"]
+        for key in params:
+            if key not in list_valid:
+                raise ValueError(f"Invalid input file with key:{key}")
 
         return
 
@@ -706,19 +742,37 @@ class SCGraph(nx.Graph):
             def f_key(x):
                 return x in [key_compensation, "pre_comp", "post_comp"]
 
-        nodes = self.sorted_nodes
-        edges = self.sorted_edges
-
-        if self.share_params:
-            nodes_root = self.map_share_node.values()
-            edges_root = self.map_share_edge.values()
-            nodes = [x for x in nodes if x in nodes_root]
-            edges = [x for x in edges if x in edges_root]
-
         nv = NodeView(self)
         ev = EdgeView(self)
 
+        nodes = self.sorted_nodes
+        edges = self.sorted_edges
+
+        nodes1 = nodes
+        nodes2 = []
+
+        if self.share_params:
+            # Key presented means it uses shared parameter
+            nodes_root = self.map_share_node.keys()
+            edges_root = self.map_share_edge.keys()
+            # Skip all edges that are pointer
+            edges = [x for x in edges if x not in edges_root]
+            # Skip all nodes that are point for device parameters
+            # Control parameters still used
+            nodes1 = [x for x in nodes if x not in nodes_root]
+            nodes2 = [x for x in nodes if x in nodes_root]
+
+        dic_node = dict([(node_name, nv[node_name]) for node_name in nodes1])
+        for node_name in nodes2:
+            dic2 = nv[node_name]
+            dic3 = {}
+            for key in list_top_key_control:
+                if key in dic2:
+                    dic3[key] = dic2[key]
+            if len(dic3) > 0:
+                dic_node[node_name] = dic3
+
         return deep_partial_dict(
-            {"nodes": dict([(node_name, nv[node_name]) for node_name in nodes]),
+            {"nodes": dic_node,
              "edges": dict([(edge_name, ev[edge_name]) for edge_name in edges])},
             f_val=lambda x: isinstance(x, jax.Array), f_key=f_key)

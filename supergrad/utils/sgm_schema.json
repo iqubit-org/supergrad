@@ -59,7 +59,12 @@
       "type": "array",
       "description": "Host the shared common arguments between nodes",
       "items": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "include": {
+            "type": "object"
+          }
+        }
       }
     },
     "nodes": {
@@ -68,7 +73,6 @@
         "type": "object",
         "required": [
           "id",
-          "system_type",
           "shared_param_mark"
         ],
         "properties": {
@@ -88,6 +92,10 @@
           "shared_param_mark": {
             "type": "integer",
             "description": "Indicate the group that share the same qubit parameters. We will set the parameters to be the same for systems with same shared_param_mark. This is intended to only effect gradient computation when share_params = True in Evolve and to make sure to set shared systems to the same value."
+          },
+          "include_param": {
+            "type": "string",
+            "description": "Include a given set of parameters in the 'common' section with this name. Note if same key presented in both 'common' and this node, use this node."
           },
           "arguments": {
             "description": "Contains fixed parameters of the qubit",
@@ -159,6 +167,7 @@
       "type": "object",
       "required": [
         "id",
+        "name",
         "pulse_type",
         "operator_type",
         "delay"
@@ -167,6 +176,10 @@
         "id": {
           "type": "string",
           "description": "the qubit name"
+        },
+        "name" : {
+          "type": "string",
+          "description": "the pulse name"
         },
         "pulse_type": {
           "type": "string",
@@ -184,6 +197,13 @@
           "enum": [
             "n_operator",
             "phi_operator"
+          ]
+        },
+        "amp_type": {
+          "type": "string",
+          "description": "Indicate which variable the pulse amplitude is applied on, used when it is not directly as the coefficient of the operator",
+          "enum": [
+            "phiej"
           ]
         },
         "delay": {

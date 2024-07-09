@@ -5,6 +5,7 @@ import networkx as nx
 
 from supergrad.scgraph.graph import SCGraph
 
+
 # Below we try to specify the structure and parameters of a quantum processor
 # This is done step by step.
 
@@ -130,15 +131,16 @@ class XGatePeriodicGraph(PeriodicGraph):
         # note that the keywords of other pulse types are not always the same
         self.add_node(
             'q02', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.07439612),
                     'length': jnp.array(40.05643032),
                     'omega_d': jnp.array(3.58624499),
                     'phase': jnp.array(1.29078953),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(-0.33619935),
                     'post_comp': jnp.array(0.33863245)
@@ -146,15 +148,16 @@ class XGatePeriodicGraph(PeriodicGraph):
             })
         self.add_node(
             'q03', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.06819317),
                     'length': jnp.array(40.04157743),
                     'omega_d': jnp.array(2.61055019),
                     'phase': jnp.array(0.5435847),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(0.51024),
                     'post_comp': jnp.array(-0.50827319)
@@ -163,15 +166,16 @@ class XGatePeriodicGraph(PeriodicGraph):
 
         self.add_node(
             'q12', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.07169389),
                     'length': jnp.array(40.0549766),
                     'omega_d': jnp.array(3.17153229),
                     'phase': jnp.array(0.87593417),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(0.0192981),
                     'post_comp': jnp.array(-0.00608968)
@@ -179,15 +183,16 @@ class XGatePeriodicGraph(PeriodicGraph):
             })
         self.add_node(
             'q13', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.07708328),
                     'length': jnp.array(40.04376009),
                     'omega_d': jnp.array(4.19561078),
                     'phase': jnp.array(1.37478176),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(-0.47187891),
                     'post_comp': jnp.array(0.47470512)
@@ -196,15 +201,16 @@ class XGatePeriodicGraph(PeriodicGraph):
 
         self.add_node(
             'q22', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.08007134),
                     'length': jnp.array(40.04477099),
                     'omega_d': jnp.array(5.00355723),
                     'phase': jnp.array(1.23550966),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(-0.3009113),
                     'post_comp': jnp.array(0.30283622)
@@ -212,15 +218,16 @@ class XGatePeriodicGraph(PeriodicGraph):
             })
         self.add_node(
             'q23', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.07334288),
                     'length': jnp.array(40.04449978),
                     'omega_d': jnp.array(3.51294492),
                     'phase': jnp.array(0.75852119),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(0.23767629),
                     'post_comp': jnp.array(-0.22839222)
@@ -243,7 +250,7 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
         # adding optimized pulse shape to edges
         self.add_node(
             'q02', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.19362652),
                     'omega_d': jnp.array(2.63342338),
                     'phase': jnp.array(-0.56882493),
@@ -251,8 +258,9 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
                     't_ramp': jnp.array(30.20130596),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array([0.26824387, -0.00582382, 0.19798702]),
@@ -273,7 +281,7 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
 
         self.add_node(
             'q12', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.18108519),
                     'omega_d': jnp.array(4.18157275),
                     'phase': jnp.array(0.27647924),
@@ -281,8 +289,9 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
                     't_ramp': jnp.array(29.98031495),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array([0.00466943, 0.78741568, -0.0862072]),
@@ -303,7 +312,7 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
 
         self.add_node(
             'q22', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.21301889),
                     'omega_d': jnp.array(3.51378339),
                     'phase': jnp.array(1.08374892),
@@ -311,8 +320,9 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
                     't_ramp': jnp.array(30.06869994),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array([-0.00160062, -1.50823985, 0.16763715]),
@@ -359,7 +369,7 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
 
         self.add_node(
             'q02', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.18788192),
                     'omega_d': jnp.array(4.607684),
                     'phase': jnp.array(-1.79225586),
@@ -367,8 +377,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
                     't_ramp': jnp.array(30.20569655),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array(
@@ -390,7 +401,7 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
 
         self.add_node(
             'q12', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.10219415),
                     'omega_d': jnp.array(2.75130128),
                     'phase': jnp.array(-0.05679767),
@@ -398,8 +409,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
                     't_ramp': jnp.array(29.07256922),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array([-0.0400265, -0.29959335, -3.0960532]),
@@ -420,7 +432,7 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
 
         self.add_node(
             'q22', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.13038021),
                     'omega_d': jnp.array(4.19534038),
                     'phase': jnp.array(0.08719563),
@@ -428,8 +440,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
                     't_ramp': jnp.array(30.16955306),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array(
@@ -453,7 +466,7 @@ class PeriodicGraphOpt(PeriodicGraph):
     def __init__(self, seed=None):
         super().__init__(seed)
         # update device params by its gradient
-        device_params = {
+        device_params = {"nodes": {
             'q02': {
                 'ec': jnp.array(6.28318531),
                 'ej': jnp.array(25.13274123),
@@ -479,8 +492,8 @@ class PeriodicGraphOpt(PeriodicGraph):
                 'ej': jnp.array(25.13274123),
                 'el': jnp.array(7.53982237)
             }
-        }
-        device_grad = {
+        }}
+        device_grad = {"nodes": {
             'q02': {
                 'ec': jnp.array(-7.00540723),
                 'ej': jnp.array(2.24324625),
@@ -506,18 +519,18 @@ class PeriodicGraphOpt(PeriodicGraph):
                 'ej': jnp.array(-0.02553209),
                 'el': jnp.array(0.05359291)
             }
-        }
+        }}
         device_params = jax.tree_util.tree_map(lambda g, v: v - 0.01 * g,
                                                device_grad, device_params)
-        device_params.update({
-            'capacitive_coupling_all_unify': {
+        device_params.update({"edges": {("q01", "q02"): {
+            'capacitive_coupling': {
                 'strength': jnp.array(0.07225663)
             },
-            'inductive_coupling_all_unify': {
+            'inductive_coupling': {
                 'strength': jnp.array(-0.01256637)
             },
-        })
-        self.update_params(device_params, unify_coupling=True)
+        }}})
+        self.update_parameters(device_params)
 
 
 class XGatePeriodicGraphOpt(PeriodicGraphOpt):
@@ -535,15 +548,16 @@ class XGatePeriodicGraphOpt(PeriodicGraphOpt):
         # adding optimized pulse shape to edges
         self.add_node(
             'q02', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.07467672),
                     'length': jnp.array(39.82459069),
                     'omega_d': jnp.array(3.70771137),
                     'phase': jnp.array(0.7558433),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(0.42591073),
                     'post_comp': jnp.array(-0.41941967)
@@ -551,15 +565,16 @@ class XGatePeriodicGraphOpt(PeriodicGraphOpt):
             })
         self.add_node(
             'q03', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.06839676),
                     'length': jnp.array(39.81302627),
                     'omega_d': jnp.array(2.56897537),
                     'phase': jnp.array(0.85390569),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(0.11757419),
                     'post_comp': jnp.array(-0.11531302)
@@ -568,15 +583,16 @@ class XGatePeriodicGraphOpt(PeriodicGraphOpt):
 
         self.add_node(
             'q12', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.07142831),
                     'length': jnp.array(39.85070846),
                     'omega_d': jnp.array(3.07586917),
                     'phase': jnp.array(1.58941357),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(-0.74646573),
                     'post_comp': jnp.array(0.74593951)
@@ -584,15 +600,16 @@ class XGatePeriodicGraphOpt(PeriodicGraphOpt):
             })
         self.add_node(
             'q13', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.07763859),
                     'length': jnp.array(39.85217838),
                     'omega_d': jnp.array(4.20299531),
                     'phase': jnp.array(1.43135504),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(-0.58423741),
                     'post_comp': jnp.array(0.58729911)
@@ -601,15 +618,16 @@ class XGatePeriodicGraphOpt(PeriodicGraphOpt):
 
         self.add_node(
             'q22', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.08054434),
                     'length': jnp.array(39.80346128),
                     'omega_d': jnp.array(5.00262381),
                     'phase': jnp.array(1.39100452),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(-0.48806854),
                     'post_comp': jnp.array(0.49022838)
@@ -617,15 +635,16 @@ class XGatePeriodicGraphOpt(PeriodicGraphOpt):
             })
         self.add_node(
             'q23', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.07422721),
                     'length': jnp.array(39.85217838),
                     'omega_d': jnp.array(3.63596315),
                     'phase': jnp.array(0.26554983),
                     'pulse_type': 'cos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp': jnp.array(1.03746918),
                     'post_comp': jnp.array(-1.02909962)
@@ -648,7 +667,7 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
         # adding optimized pulse shape to edges
         self.add_node(
             'q02', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.18128846),
                     'omega_d': jnp.array(2.58934559),
                     'phase': jnp.array(-0.24290228),
@@ -656,8 +675,9 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
                     't_ramp': jnp.array(29.92806488),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array([0.05671005, 0.02682845, 0.0395099]),
@@ -678,7 +698,7 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
 
         self.add_node(
             'q12', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.17872194),
                     'omega_d': jnp.array(4.19989714),
                     'phase': jnp.array(-0.01543561),
@@ -686,8 +706,9 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
                     't_ramp': jnp.array(29.94562879),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array([0.00185588, 1.00099539, -0.22439037]),
@@ -708,7 +729,7 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
 
         self.add_node(
             'q22', **{
-                'pulse': {
+                'pulse': {'p1': {
                     'amp': jnp.array(0.23370657),
                     'omega_d': jnp.array(3.65018191),
                     'phase': jnp.array(-0.50006247),
@@ -716,8 +737,9 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
                     't_ramp': jnp.array(29.98769304),
                     'pulse_type': 'rampcos',
                     'operator_type': 'phi_operator',
-                    'delay': 0.
-                },
+                    'delay': 0.,
+                    'modulate_wave': True
+                }},
                 'compensation': {
                     'pre_comp':
                         jnp.array(

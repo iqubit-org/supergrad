@@ -20,8 +20,7 @@ class SingleQubitCompensation():
         graph: SuperGrad graph
         compensation_option (string): Set single qubit compensation strategy,
             should be in ['only_vz', 'arbit_single']
-        coupler_subsystem: the name of coupler subsystem should be keep in |0>
-            during the evolution.
+        subsystem: the name of subsystem that we should add compensation to
         name: module name
 
     Raises:
@@ -30,7 +29,7 @@ class SingleQubitCompensation():
 
     def __init__(self,
                  graph: SCGraph,
-                 coupler_subsystem=[],
+                 data_subsystem=None,
                  name: str = 'single_q_compensation'):
         self.name = name
         # construct activation function
@@ -39,7 +38,7 @@ class SingleQubitCompensation():
         shape = []
 
         for node_name in graph.sorted_nodes:
-            if node_name not in coupler_subsystem:
+            if (data_subsystem is None or (node_name in data_subsystem)):
                 node_comp = graph.nodes[node_name].get("compensation", {})
                 self.pre_comp_angles.append(node_comp.get("pre_comp", jnp.zeros(shape)))
                 self.post_comp_angles.append(node_comp.get("post_comp", jnp.zeros(shape)))
@@ -54,7 +53,10 @@ class SingleQubitCompensation():
         for angles in [self.pre_comp_angles, self.post_comp_angles]:
             list_unitary = []
             for params in angles:
-                if params.size == 1:
+                # No compensation
+                if params.size == 0:
+                    unitary = pauli_mats[0]
+                elif params.size == 1:
                     unitary = jnp.cos(params) * pauli_mats[0] + 1j * jnp.sin(params) * pauli_mats[3]
                 elif params.size == 3:
                     unitary = (jnp.cos(params[1]) * pauli_mats[0] +

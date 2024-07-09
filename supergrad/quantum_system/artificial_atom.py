@@ -18,8 +18,6 @@ class Fluxonium(CircuitLCJ):
         ec (float, optional): charging energy in unit GHz
         ej (float, optional): Josephson energy in unit GHz
         el (float, optional): inductive energy in unit GHz
-        constant (bool): True for manually setting parameters, False for using
-            haiku's parameters management.
         phiext: phi external parameters for fluxonium, in unit of flux quanta
         put_phiext_on_inductor: Whether to put the external flux term
             in the EL term (True) or EJ term (False).
@@ -32,7 +30,6 @@ class Fluxonium(CircuitLCJ):
         is_basis_sym: Is basis forced to be [-n, ... +n]
             instead of [-n, ... +n-1].
         name: module name
-        var: the device parameters variance
         drive_for_state_phase: This is to specify which drive is used, so
             eigenstates are rotated to let <i|drive|i+1> be real positive
             Possible values are "charge" and "phase". Default is "charge".
@@ -43,7 +40,6 @@ class Fluxonium(CircuitLCJ):
                  ej: float,
                  el: float,
                  phiext: float,
-                 constant: bool = False,
                  put_phiext_on_inductor: bool = True,
                  num_basis: int = 400,
                  truncated_dim: int = 10,
@@ -52,7 +48,6 @@ class Fluxonium(CircuitLCJ):
                  phi_max: float = 5 * np.pi,
                  is_basis_sym: bool = False,
                  name: str = 'fluxonium',
-                 var: dict = None,
                  drive_for_state_phase: str = 'charge') -> None:
         super().__init__(False, basis, num_basis, truncated_dim, n_max, phi_max,
                          is_basis_sym, drive_for_state_phase, name)
@@ -163,12 +158,9 @@ class Transmon(CircuitLCJ):
         ec (float, optional): charging energy
         ej (float, optional): Josephson energy
         ng (float, optional): ng parameter for transmon
-            set `None` if you want to pass parameters by dm-haiku.
-        constant (bool): True for manually setting parameters, False for using
-            haiku's parameters management.
-        d (float, optional): junction asymmetry parameter,
-            set `None` if it's not a Tunable Transmon.
-        phiext: phi external parameters for fluxonium, in unit of flux quanta
+        d (float, optional): junction asymmetry parameter, as :math:`(E_{J2}-E_{J1})/(E_{J2}+E_{J1})`.
+            Set to 1 if it's not a Tunable Transmon.
+        phiej: phi for tunable EJ for transmon, in unit of flux quanta
         num_basis: Number of basis functions
         truncated_dim: Number of eigenenergies to construct the Hilbert space.
         basis: Basis set, can be {'charge', 'phase', 'phase_only'}.
@@ -177,7 +169,6 @@ class Transmon(CircuitLCJ):
         is_basis_sym: Is basis forced to be [-n, ... +n]
             instead of [-n, ... +n-1].
         name: module name
-        var: the device parameters variance
         drive_for_state_phase: This is to specify which drive is used, so
             eigenstates are rotated to let <i|drive|i+1> be real positive
             Possible values are "charge" and "phase". Default is "charge".
@@ -187,15 +178,14 @@ class Transmon(CircuitLCJ):
                  ec: float,
                  ej: float,
                  ng: float,
-                 constant: bool = False,
-                 phiext: float = None,
+                 d: float = 1,
+                 phiej: float = 0,
                  num_basis: int = 400,
                  truncated_dim: int = 10,
                  basis: str = 'phase',
                  n_max: int = 0,
                  is_basis_sym: bool = False,
                  name: str = 'transmon',
-                 var: jnp.ndarray = None,
                  drive_for_state_phase: str = 'charge') -> None:
         phi_max = np.pi  # Periodicity of 2pi
         super().__init__(True, basis, num_basis, truncated_dim, n_max,
@@ -203,14 +193,12 @@ class Transmon(CircuitLCJ):
 
         self.ec = ec
         self.ej = ej
-
         self.ng = ng
+        self.d = d
+        self.phiej = phiej
 
         if basis not in ['phase', 'charge', 'phase_only']:
             raise NotImplementedError(f'Do not support basis {basis}.')
-
-        self.phiext = phiext
-        self.tunable = False
 
         self.put_phiext_on_inductor = False  # Transmon do not have inductor
 
@@ -236,18 +224,27 @@ class Transmon(CircuitLCJ):
             m = n_square - 2 * self.ng * n1 + jnp.eye(self.ar_phi.size) * self.ng**2
             return m * (self.ec * 4)
 
+    @staticmethod
+    def get_ej_eff(ej: float, d: float, phiej: float) -> jnp.ndarray:
+        '''Computes the effective EJ from tunable transmon parameters.
+
+        Args:
+            ej: the maximum EJ of the transmon
+            d (float, optional): junction asymmetry parameter, as :math:`(E_{J2}-E_{J1})/(E_{J2}+E_{J1})`.
+            phiej: the :math:`Phi_{EJ}` in the transmon SQUID loop.
+
+        Returns:
+            the effective EJ
+        '''
+        return ej * jnp.sqrt(jnp.cos(phiej / 2.0) ** 2 + d ** 2 * jnp.sin(phiej / 2.0) ** 2)
+
     def create_v(self) -> jnp.ndarray:
         """Computes potential matrix.
 
         Returns:
             potential matrix.
         """
-        if self.tunable:
-            ej_eff = self.ej * jnp.sqrt(
-                jnp.cos(self.phiext / 2.0)**2
-                + self.d**2 * jnp.sin(self.phiext / 2.0)**2)
-        else:
-            ej_eff = self.ej
+        ej_eff = self.get_ej_eff(self.ej, self.d, self.phiej)
 
         if self.basis == "charge":
             m = -1.0 * ej_eff * self.charge_cos
@@ -318,6 +315,18 @@ class Transmon(CircuitLCJ):
         cosphi_truncated_eigenbasis = cosphi_eigenbasis[:self.dim, :self.dim]
         return cosphi_truncated_eigenbasis
 
+    def phiej_coef_cosphi_operator(self, phiej) -> jnp.array:
+        """Convert the phiej Value to be a coefficient of cosphi operator.
+
+        Args:
+            phiej: the Phiej value of the tunable transmon
+
+        Returns:
+            the coefficient of the cosphi operator
+        """
+        return -self.get_ej_eff(self.ej, self.d, phiej) + self.get_ej_eff(self.ej, self.d, self.phiej)
+
+
 
 class Resonator(QuantumSystem):
     """Class representing a harmonic resonator.
@@ -325,8 +334,6 @@ class Resonator(QuantumSystem):
     Args:
         f_res: resonator frequency in unit GHz
         remove_zpe: Remove the Zero-point energy(ZPE) of the resonator.
-        constant (bool): True for manually setting parameters, False for using
-            haiku's parameters management.
         truncated_dim: Number of eigenenergies to construct the Hilbert space.
         name: module name
     """
@@ -334,7 +341,6 @@ class Resonator(QuantumSystem):
     def __init__(self,
                  f_res: float = None,
                  remove_zpe: bool = False,
-                 constant: bool = False,
                  truncated_dim: int = 10,
                  name: str = 'resonator') -> None:
         super().__init__(name=name)

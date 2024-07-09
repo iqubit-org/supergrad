@@ -12,7 +12,6 @@ os.chdir(dir_path)
 
 # %%
 
-@pytest.mark.skip(reason="Tunable transmon not implemented")
 def test_composite_transmon():
     # load cached data
     spec_0 = np.load('data/data_composite_transmon_spec.npy')
@@ -24,35 +23,34 @@ def test_composite_transmon():
             super().init_quantum_system(params)
             tm1 = Transmon(ej=40.,
                            ec=0.2,
-                           #d=0.1,
-                           #phiext=0.23 * 2 * np.pi,
+                           d=0.1,
+                           phiej=0.23 * 2 * np.pi,
                            ng=0.3,
                            n_max=40,
                            truncated_dim=3,
-                           constant=True)
+                           )
             tm2 = Transmon(ej=15.,
                            ec=0.15,
-                           #d=0.2,
-                           #phiext=0.,
+                           d=0.2,
+                           phiej=0.,
                            ng=0.,
                            n_max=30,
                            truncated_dim=3,
-                           constant=True)
+                           )
             res = Resonator(f_res=4.5,
                             truncated_dim=4,
-                            constant=True,
                             remove_zpe=True)
 
             coup1 = parse_interaction(g_strength=0.1,
                                       op1=tm1.n_operator,
                                       op2=res.creation_operator,
                                       add_hc=True,
-                                      constant=True)
+                                      )
             coup2 = parse_interaction(g_strength=0.2,
                                       op1=tm2.n_operator,
                                       op2=res.creation_operator,
                                       add_hc=True,
-                                      constant=True)
+                                      )
             self.hilbertspace = InteractingSystem([tm1, tm2, res],
                                                   [coup1, coup2])
 
@@ -87,38 +85,38 @@ def test_composite_fluxonium():
                             phiext=0.33 * 2 * np.pi,
                             phi_max=5 * np.pi,
                             truncated_dim=4,
-                            constant=True)
+                            )
             coupler1 = Fluxonium(ej=4.0,
                                  ec=2.0,
                                  el=0.5,
                                  phiext=0.0,
                                  phi_max=5 * np.pi,
                                  truncated_dim=6,
-                                 constant=True)
+                                 )
             fm2 = Fluxonium(ej=3.5,
                             ec=1.2,
                             el=0.5,
                             phiext=0.5 * 2 * np.pi,
                             phi_max=5 * np.pi,
                             truncated_dim=4,
-                            constant=True)
+                            )
 
             coup1 = parse_interaction(g_strength=0.04,
                                       op1=fm1.n_operator,
                                       op2=coupler1.n_operator,
-                                      constant=True)
+                                      )
             coup2 = parse_interaction(g_strength=-0.02,
                                       op1=fm1.phi_operator,
                                       op2=coupler1.phi_operator,
-                                      constant=True)
+                                      )
             coup3 = parse_interaction(g_strength=0.04,
                                       op1=fm2.n_operator,
                                       op2=coupler1.n_operator,
-                                      constant=True)
+                                      )
             coup4 = parse_interaction(g_strength=-0.02,
                                       op1=fm2.phi_operator,
                                       op2=coupler1.phi_operator,
-                                      constant=True)
+                                      )
             self.hilbertspace = InteractingSystem([fm1, coupler1, fm2],
                                                   [coup1, coup2, coup3, coup4])
 

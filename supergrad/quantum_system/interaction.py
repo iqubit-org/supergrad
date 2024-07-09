@@ -44,7 +44,6 @@ def parse_interaction(**kwargs):
         g = kwargs.pop('J', None)
 
     add_hc = kwargs.pop("add_hc", False)
-    constant = kwargs.pop('constant', False)
     name = kwargs.pop('name', 'interaction_term')
 
     operator_list = []

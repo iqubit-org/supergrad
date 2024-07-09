@@ -1,0 +1,115 @@
+{
+  "global" :{
+    "name": "T2C1GateCoupler",
+    "energy_unit": "h",
+    "frequency_unit": "GHz",
+    "share_params": false,
+    "unify_coupling": false
+  },
+  "common": [
+    {
+      "name": "transmon_data",
+      "include": {
+        "system_type": "transmon",
+        "device_category": "data",
+        "arguments": {
+          "ng": 0.5,
+          "num_basis": 62,
+          "n_max": 31,
+          "truncated_dim": 3
+        }
+      }
+    },
+    {
+      "name": "transmon_coupler",
+      "include": {
+        "system_type": "transmon",
+        "device_category": "coupler",
+        "arguments": {
+          "ng": 0.5,
+          "num_basis": 62,
+          "n_max": 31,
+          "truncated_dim": 5
+        }
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "q0",
+      "ec": 0.19185615287872385,
+      "ej": 19.49648028222824,
+      "shared_param_mark": 1,
+      "include_param": "transmon_data"
+    },
+    {
+      "id": "q1",
+      "ec": 0.213187792965755,
+      "ej": 13.728965389628033,
+      "shared_param_mark": 2,
+      "include_param": "transmon_data"
+    },
+    {
+      "id": "q2",
+      "ec": 0.3262149087100589,
+      "ej": 19.031846015461063,
+      "phiej": 0,
+      "d": 0.55,
+      "shared_param_mark": 3,
+      "include_param": "transmon_coupler"
+    }
+  ],
+  "edges": [
+    {
+      "source": "q0",
+      "target": "q1",
+      "capacitive_coupling": {
+        "strength": 0.007875114483760905
+      }
+    },
+    {
+      "source": "q0",
+      "target": "q2",
+      "capacitive_coupling": {
+        "strength": 0.08217404005297463
+      }
+    },
+    {
+      "source": "q1",
+      "target": "q2",
+      "capacitive_coupling": {
+        "strength": 0.07967999442514183
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "id": "q2",
+      "name": "p1",
+      "pulse_type": "rampcos",
+      "operator_type": "cosphi_operator",
+      "amp_type": "phiej",
+      "delay": 0.0,
+      "amp": 2.4,
+      "t_ramp": 16.44,
+      "t_plateau": 6.95,
+      "omega_d": 0.0,
+      "phase": 0.0,
+      "arguments": {
+        "modulate_wave": false
+      }
+    }
+  ],
+  "compensation": [
+    {
+      "id": "q0",
+      "pre_comp": 0.3714724,
+      "post_comp": -0.3714724
+    },
+    {
+      "id": "q1",
+      "pre_comp": 0.3714724,
+      "post_comp": -0.3714724
+    }
+  ]
+}

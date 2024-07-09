@@ -22,7 +22,8 @@ def test_transmon_phase_basis():
         def init_quantum_system(self, params):
             super().init_quantum_system(params)
             self.tmon = Transmon(basis='phase',
-                                 phiext=0.,
+                                 d=1.,
+                                 phiej=0.,
                                  truncated_dim=6,
                                  drive_for_state_phase='charge',
                                  n_max=31,
@@ -66,7 +67,6 @@ def test_transmon_phase_basis():
     assert np.allclose(data_0.flatten(), data_1.flatten())
 
 
-@pytest.mark.skip(reason="Tunable transmon not implemented")
 def test_tunable_transmon_phase_basis():
     # Get cached data
     data_0 = np.load('data/data_create_tunable_transmon.npy')
@@ -74,13 +74,15 @@ def test_tunable_transmon_phase_basis():
     # construct model
     class ExploreTransmon(Helper):
 
-        def _init_quantum_system(self):
+        def init_quantum_system(self, params):
+            super().init_quantum_system(params)
             self.tmon = Transmon(basis='phase',
                                  truncated_dim=6,
-                                 d=hk.get_parameter('d', [], init=np.zeros),
                                  drive_for_state_phase='charge',
-                                 n_max=40)
+                                 n_max=40,
+                                 **(params["transmon"]))
 
+        @Helper.decorator_auto_init
         def energy_spectrum(self):
             return self.tmon.eigenenergies()
 
@@ -92,14 +94,12 @@ def test_tunable_transmon_phase_basis():
     flux_list = np.linspace(0.1, 0.5, 3)
     ng_list = np.linspace(0.2, 0.4, 3)
     params = {
-        '~': {
-            'd': d_list
-        },
         'transmon': {
+            'd': d_list,
             'ec': ec_list,
             'ej': ej_list,
             'ng': ng_list,
-            'phiext': flux_list * 2 * np.pi
+            'phiej': flux_list * 2 * np.pi
         }
     }
 
@@ -109,54 +109,44 @@ def test_tunable_transmon_phase_basis():
                 jax.vmap(
                     jax.vmap(tmon.energy_spectrum,
                              in_axes=({
-                                          '~': {
-                                              'd': None,
-                                          },
                                           'transmon': {
+                                              'd': None,
                                               'ec': None,
                                               'ej': None,
                                               'ng': 0,
-                                              'phiext': None
+                                              'phiej': None
                                           }
                                       },)), ({
-                                                 '~': {
-                                                     'd': None,
-                                                 },
                                                  'transmon': {
+                                                     'd': None,
                                                      'ec': None,
                                                      'ej': None,
                                                      'ng': None,
-                                                     'phiext': 0
+                                                     'phiej': 0
                                                  }
                                              },)), ({
-                                                        '~': {
-                                                            'd': 0,
-                                                        },
                                                         'transmon': {
+                                                            'd': 0,
                                                             'ec': None,
                                                             'ej': None,
                                                             'ng': None,
-                                                            'phiext': None
+                                                            'phiej': None
                                                         }
                                                     },)), ({
-                                                               '~': {
-                                                                   'd': None,
-                                                               },
                                                                'transmon': {
+                                                                   'd': None,
                                                                    'ec': 0,
                                                                    'ej': None,
                                                                    'ng': None,
-                                                                   'phiext': None
+                                                                   'phiej': None
                                                                }
                                                            },)), ({
-                                                                      '~': {
-                                                                          'd': None,
-                                                                      },
                                                                       'transmon': {
+                                                                          'd': None,
                                                                           'ec': None,
                                                                           'ej': 0,
                                                                           'ng': None,
-                                                                          'phiext': None
+                                                                          'phiej': None
                                                                       }
                                                                   },))
     data_1 = multi_spec(params)

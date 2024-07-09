@@ -9,19 +9,17 @@ from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
 # %%
 n_qubit = 10
 chain = MPCFluxonium1D(n_qubit, periodic=False, seed=42)
-chain.create_single_qubit_pulse(range(n_qubit), [
-    50.0,
-] * n_qubit, True)
+# Must set before any operations
+chain.share_params = True
+chain.unify_coupling = True
+chain.set_all_node_attr(truncated_dim=2)
 
-target_unitary = tensor(*[
-    x_gate(),
-] * n_qubit)
+chain.create_single_qubit_pulse(range(n_qubit), [ 50.0, ] * n_qubit)
+
+target_unitary = tensor(*[ x_gate(), ] * n_qubit)
+
 # %%
 evo = Evolve(chain,
-             truncated_dim=2,
-             share_params=True,
-             unify_coupling=True,
-             compensation_option='no_comp',
              solver='ode_expm',
              options={
                  'astep': 2000,
@@ -39,9 +37,9 @@ def compute_fidelity(params):
     return fidelity
 
 
-compute_fidelity(evo.all_params)  # 0.96108984
+print(compute_fidelity(evo.all_params))  # 0.96108984
 # %%
 # compute the gradient with respect to the control and device parameters
-jax.grad(compute_fidelity)(evo.all_params)
+print(jax.grad(compute_fidelity)(evo.all_params))
 
 # %%

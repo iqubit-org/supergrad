@@ -5,7 +5,7 @@ import pprint
 import jax.numpy as jnp
 
 
-def deep_update_dict(dic0: dict, dic1: dict):
+def deep_update_dict(dic0: dict, dic1: dict, append=False):
     """Merges all values from a nested dictionary to another.
 
     This modification is in-place.
@@ -13,6 +13,7 @@ def deep_update_dict(dic0: dict, dic1: dict):
     Args:
         dic0: the original dict, to put new data into it
         dic1: the new data
+        append: whether to allow a new key to be added to the dictionary.
 
     Raises:
         ValueError: any key not exists or type mismatch in the original dictionary
@@ -22,14 +23,18 @@ def deep_update_dict(dic0: dict, dic1: dict):
     """
     for key, val1 in dic1.items():
         if key not in dic0:
-            raise ValueError(f"{key} not found in original data")
+            if not append:
+                raise ValueError(f"{key} not found in original data")
+            else:
+                dic0[key] = val1
+                continue
         val0 = dic0[key]
         is_dict0 = isinstance(val0, dict)
         is_dict1 = isinstance(val1, dict)
         if is_dict0 != is_dict1:
             raise ValueError(f"{key} type mismatch in original/new data")
         if is_dict0 and is_dict1:
-            deep_update_dict(val0, val1)
+            deep_update_dict(val0, val1, append)
         else:
             dic0[key] = val1
     return dic0

@@ -16,18 +16,24 @@ share_params = True
 unify_coupling = True
 compensation_option = 'only_vz'
 opt = 'adam'
+
 # instance the quantum processor graph, and choose a subset for time evolution
 gate_graph = XGatePeriodicGraphOpt(1)
-qubit_subset = gate_graph.subgraph(['q02', 'q03', 'q12', 'q13', 'q22', 'q23'])
+gate_graph.set_all_node_attr(truncated_dim=truncated_dim)
+if add_random:
+    gate_graph.add_lcj_params_variance_to_graph()
 
-evo = Evolve(qubit_subset, truncated_dim, add_random, share_params,
-             unify_coupling, compensation_option)
+
+qubit_subset = gate_graph.subscgraph(['q02', 'q03', 'q12', 'q13', 'q22', 'q23'])
+qubit_subset.share_params = share_params
+qubit_subset.unify_coupling = unify_coupling
+
+evo = Evolve(qubit_subset)
 unitary = supergrad.tensor(*([sigmax()] * len(qubit_subset.nodes)))
 
 
 # %%
 def infidelity(params, unitary):
-    params = hk.data_structures.merge(evo.all_params, params)
     # evolve system on the eigen basis.
     sim_u = evo.eigen_basis(params)
     # calculate fidelity
@@ -40,44 +46,44 @@ def infidelity(params, unitary):
 
 # %%
 # list the parameters that will be updated during the optimization
-params = {
-    'q02_pulse_cos': {
+params = {"nodes":{
+    'q02':{'pulse':{'p1':{
         'amp': jnp.array(0.07467672),
         'length': jnp.array(39.82459069),
         'omega_d': jnp.array(3.70771137),
         'phase': jnp.array(0.7558433)
-    },
-    'q03_pulse_cos': {
+    }}},
+    'q03':{'pulse':{'p1':{
         'amp': jnp.array(0.06839676),
         'length': jnp.array(39.81302627),
         'omega_d': jnp.array(2.56897537),
         'phase': jnp.array(0.85390569)
-    },
-    'q12_pulse_cos': {
+    }}},
+    'q12':{'pulse':{'p1':{
         'amp': jnp.array(0.07142831),
         'length': jnp.array(39.85070846),
         'omega_d': jnp.array(3.07586917),
         'phase': jnp.array(1.58941357)
-    },
-    'q13_pulse_cos': {
+    }}},
+    'q13':{'pulse':{'p1':{
         'amp': jnp.array(0.07763859),
         'length': jnp.array(39.85217838),
         'omega_d': jnp.array(4.20299531),
         'phase': jnp.array(1.43135504)
-    },
-    'q22_pulse_cos': {
+    }}},
+    'q22':{'pulse':{'p1':{
         'amp': jnp.array(0.08054434),
         'length': jnp.array(39.80346128),
         'omega_d': jnp.array(5.00262381),
         'phase': jnp.array(1.39100452)
-    },
-    'q23_pulse_cos': {
+    }}},
+    'q23':{'pulse':{'p1':{
         'amp': jnp.array(0.07422721),
         'length': jnp.array(39.85217838),
         'omega_d': jnp.array(3.63596315),
         'phase': jnp.array(0.26554983)
-    },
-}
+    }}},
+}}
 # %%
 # show the optimization procedure
 if __name__ == '__main__':

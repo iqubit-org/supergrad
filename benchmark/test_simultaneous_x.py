@@ -100,7 +100,7 @@ def test_simultaneous_x_grad_framework(benchmark, n_qubit):
     assert len(vg_infidelity[0]) == 2
 
 
-@pytest.mark.benchmark_grad
+#@pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
 def test_simultaneous_x_grad_continuous(benchmark, n_qubit):
     # bench supergrad
