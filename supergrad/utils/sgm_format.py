@@ -49,7 +49,7 @@ def convert_children_to_data_array(dic: dict, energy_scale: float) -> dict:
     for key, val in dic.items():
         if key in list_skip_key:
             continue
-        if (isinstance(val, float) or isinstance(val, int)) and (key not in list_fix_key):
+        if (isinstance(val, float) or (isinstance(val, int) and not isinstance(val, bool))) and (key not in list_fix_key):
             if key in list_key_scale:
                 val = jnp.array(val * energy_scale)
             else:
