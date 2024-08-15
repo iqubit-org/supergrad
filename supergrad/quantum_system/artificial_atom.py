@@ -324,7 +324,7 @@ class Transmon(CircuitLCJ):
         Returns:
             the coefficient of the cosphi operator
         """
-        return -self.get_ej_eff(self.ej, self.d, phiej) + self.get_ej_eff(self.ej, self.d, self.phiej)
+        return -self.get_ej_eff(self.ej, self.d, self.phiej + phiej) + self.get_ej_eff(self.ej, self.d, self.phiej)
 
 
 
