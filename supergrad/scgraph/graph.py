@@ -12,8 +12,7 @@ from supergrad.time_evolution.pulseshape import (PulseCosine, PulseTrapezoid,
 from supergrad.utils.utility import identity_wrap
 from supergrad.utils.format_conv import deep_partial_dict, deep_update_dict
 
-from supergrad.quantum_system.artificial_atom import (Fluxonium, Transmon,
-                                                      Resonator)
+from supergrad.quantum_system import (Fluxonium, Transmon, Resonator, Qudit, StandardNonlinearOscillator)
 from supergrad.quantum_system.interaction import (InteractingSystem,
                                                   InteractionTerm,
                                                   parse_interaction)
@@ -25,7 +24,9 @@ DeviceCategoryType = Literal["data", "ancilla", "coupler", "readout"]
 artificial_atom_dict = {
     'fluxonium': Fluxonium,
     'transmon': Transmon,
-    'resonator': Resonator
+    'resonator': Resonator,
+    "qudit": Qudit,
+    "sno": StandardNonlinearOscillator
 }
 pulse_shape_dict = {
     'trapezoid': PulseTrapezoid,

@@ -44,7 +44,7 @@ def convert_children_to_data_array(dic: dict, energy_scale: float) -> dict:
     """
     list_skip_key = ["id", "source", "target", "name"]
     list_fix_key = ["shared_param_mark", "delay"]
-    list_key_scale = ["strength", "ec", "ej", "el"]
+    list_key_scale = ["strength", "ec", "ej", "el", "f"]
     dic2 = {}
     for key, val in dic.items():
         if key in list_skip_key:
@@ -59,6 +59,8 @@ def convert_children_to_data_array(dic: dict, energy_scale: float) -> dict:
                 raise ValueError(f"SGM not support empty lists: {key}")
             if isinstance(val[0], float) or isinstance(val[0], int):
                 val = jnp.asarray([x * 1.0 for x in val])
+            if key in list_key_scale:
+                val *= energy_scale
         dic2[key] = val
     return dic2
 

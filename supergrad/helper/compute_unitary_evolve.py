@@ -186,6 +186,9 @@ class Evolve(Helper):
             transform_matrix: pre-computed transform matrix,
                 used when design parameters is not optimized.
             kwargs: keyword arguments will be passed to `supergrad.time_evolution.sesolve`
+
+        Returns:
+            states in [time, component, initial], states in [time, initial-only, initial]
         """
         transform_matrix = self.get_basis_transform_matrix(basis, transform_matrix)
 
@@ -196,8 +199,9 @@ class Evolve(Helper):
         ham = [ham_static, *self.hamiltonian_component_and_pulseshape]
 
         self._prepare_initial_states(psi_list)
+        psi_list = self.psi_list
         if transform_matrix is not None:
-            psi_list = transform_matrix @ self.psi_list
+            psi_list = transform_matrix @ psi_list
 
         if tlist is None:
             self.tlist = [0, self.pulse_endtime]
@@ -213,10 +217,10 @@ class Evolve(Helper):
                       options=options)
         # Replace the last dimension with initial states
         # Now [time, comp, psi_init]
-        res = jnp.swapaxes(res, 0, 3)[0]
+        states = jnp.swapaxes(res, 0, 3)[0]
 
         if transform_matrix is not None:
-            states = jnp.conj(transform_matrix).T @ res
+            states = jnp.conj(transform_matrix).T @ states
 
         # Extract the states in the computational space
         pop = jnp.abs(psi_list).real ** 2

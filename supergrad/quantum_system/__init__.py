@@ -1,6 +1,7 @@
 from supergrad.quantum_system.base import QuantumSystem
 from supergrad.quantum_system.artificial_atom import (CircuitLCJ, Transmon,
                                                       Fluxonium, Resonator)
+from supergrad.quantum_system.qudit import Qudit, StandardNonlinearOscillator
 from supergrad.quantum_system.interaction import (parse_interaction,
                                                   InteractingSystem,
                                                   InteractionTerm)
