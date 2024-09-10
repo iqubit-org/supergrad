@@ -35,7 +35,7 @@ def compute_fidelity(params):
     realized_state = evo.product_basis(params, initial_state)
     return 1 - distributed_state_fidelity(target_state, realized_state)
     fid, opt_state = distributed_overlap_with_auto_vz_compensation(
-        realized_state, target_state)
+        target_state, realized_state)
     return 1 - fid
 
 
