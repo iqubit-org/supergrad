@@ -14,7 +14,7 @@ from supergrad.utils.gates import x_gate, hadamard_transform
 from supergrad.utils.fidelity import compute_average_fidelity_with_leakage
 
 from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
-from supergrad.utils.sharding import sharding_put, distributed_state_fidelity
+from supergrad.utils.sharding import sharding_put, distributed_state_fidelity, distributed_fidelity_with_auto_vz_compensation
 
 # %%
 n_qubit = 4
@@ -44,8 +44,8 @@ evo = Evolve(chain,
 output = evo.product_basis(evo.all_params)
 jax.debug.visualize_array_sharding(output)
 # %%
-fidelity, comp_output = compute_fidelity_with_1q_rotation_axis(
-    target_unitary, output, compensation_option='only_vz')
+fidelity, comp_output = distributed_fidelity_with_auto_vz_compensation(
+    target_unitary, output)
 
 
 # %%
@@ -53,7 +53,8 @@ def debug_distributed_state_fidelity(target_states, computed_states):
     assert target_states.sharding == computed_states.sharding
     ar_state_fidelity = jnp.sum(jnp.conj(target_states) * computed_states,
                                 axis=0)
-    return jnp.abs(ar_state_fidelity)**2
+    # return jnp.abs(ar_state_fidelity)**2
+    return jnp.abs(ar_state_fidelity.mean())**2
 
 
 debug_distributed_state_fidelity(output, target_unitary)

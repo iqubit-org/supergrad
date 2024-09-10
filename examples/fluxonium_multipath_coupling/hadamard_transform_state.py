@@ -6,7 +6,7 @@ from supergrad.helper import Evolve
 from supergrad.utils import tensor, basis, compute_fidelity_with_1q_rotation_axis
 from supergrad.utils.gates import x_gate, hadamard_transform
 from supergrad.utils.fidelity import compute_average_fidelity_with_leakage
-from supergrad.utils.sharding import distributed_state_fidelity
+from supergrad.utils.sharding import distributed_state_fidelity, distributed_overlap_with_auto_vz_compensation
 
 from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
 # %%
@@ -34,7 +34,8 @@ evo = Evolve(chain,
 initial_state = basis(2**n_qubit)
 output = evo.product_basis(evo.all_params, initial_state)
 # %%
-# fidelity, comp_output = compute_fidelity_with_1q_rotation_axis(target_unitary, output, compensation_option='only_vz')
+fidelity, comp_output = distributed_overlap_with_auto_vz_compensation(
+    target_state, output)
 # %%
 fid, jac = jax.value_and_grad(distributed_state_fidelity)(output, target_state)
 
