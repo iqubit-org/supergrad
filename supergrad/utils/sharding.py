@@ -75,9 +75,9 @@ def distributed_overlap_with_auto_vz_compensation(psi_target,
     res = solver.run(initial_guess,
                      psi_target=psi_target,
                      psi_computed=psi_computed)
-    print(initial_guess)
-    print(res.state)
-    print(res.params)
+    # print(initial_guess)
+    # print(res.state)
+    # print(res.params)
     psi_optimal = fidelity_lib.apply_nz(res.params, psi_computed)
 
     return distributed_state_fidelity(psi_target, psi_optimal), psi_optimal

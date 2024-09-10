@@ -9,19 +9,17 @@ import jax.numpy as jnp
 from jax.sharding import PartitionSpec as P
 
 from supergrad.helper import Evolve
-from supergrad.utils import tensor, compute_fidelity_with_1q_rotation_axis
-from supergrad.utils.gates import x_gate, hadamard_transform
-from supergrad.utils.fidelity import compute_average_fidelity_with_leakage
-
+from supergrad.utils.gates import hadamard_transform
 from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
 from supergrad.utils.sharding import sharding_put, distributed_state_fidelity, distributed_fidelity_with_auto_vz_compensation
 
 # %%
-n_qubit = 4
+n_qubit = 8
 chain = MPCFluxonium1D(n_qubit, periodic=False, seed=42)
-chain.create_single_qubit_pulse(range(n_qubit), [
-    50.0,
-] * n_qubit, True, factor=0.25, minimal_approach=True)
+chain.create_single_qubit_pulse(range(n_qubit), [50.0] * n_qubit,
+                                True,
+                                factor=0.25,
+                                minimal_approach=True)
 
 target_unitary = hadamard_transform(n_qubit)
 # %%
@@ -31,13 +29,11 @@ jax.debug.visualize_array_sharding(target_unitary)
 # %%
 evo = Evolve(chain,
              truncated_dim=2,
-             share_params=True,
-             unify_coupling=True,
              compensation_option='no_comp',
              solver='ode_expm',
              options={
-                 'astep': 2000,
-                 'trotter_order': 1,
+                 'astep': 5000,
+                 'trotter_order': 2,
                  'progress_bar': True,
                  'custom_vjp': True,
              })
@@ -46,30 +42,19 @@ jax.debug.visualize_array_sharding(output)
 # %%
 fidelity, comp_output = distributed_fidelity_with_auto_vz_compensation(
     target_unitary, output)
-
+jax.debug.visualize_array_sharding(comp_output)
 
 # %%
-def debug_distributed_state_fidelity(target_states, computed_states):
-    assert target_states.sharding == computed_states.sharding
-    ar_state_fidelity = jnp.sum(jnp.conj(target_states) * computed_states,
-                                axis=0)
-    # return jnp.abs(ar_state_fidelity)**2
-    return jnp.abs(ar_state_fidelity.mean())**2
+distributed_state_fidelity(output, target_unitary)
 
 
-debug_distributed_state_fidelity(output, target_unitary)
-
-
-# state_out, jac = jax.value_and_grad(distributed_state_fidelity)(output, target_unitary)
-# distributed_state_fidelity(target_unitary[:, 0, jnp.newaxis], comp_output[:, 0, jnp.newaxis])
 # %%
 def compute_fidelity(params):
     realized_unitary = evo.product_basis(params)
-    return distributed_state_fidelity(realized_unitary, target_unitary)
-    fidelity, res_unitary = compute_fidelity_with_1q_rotation_axis(
-        target_unitary, realized_unitary, compensation_option='only_vz')
-    return fidelity
+    fidelity, res_unitary = distributed_fidelity_with_auto_vz_compensation(
+        target_unitary, realized_unitary)
+    return 1 - fidelity
 
 
-v, g = jax.value_and_grad(compute_fidelity)(evo.all_params)  # 0.96108984
+v, g = jax.value_and_grad(compute_fidelity)(evo.all_params)  # 0.07157539
 # %%
