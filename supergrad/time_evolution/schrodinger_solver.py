@@ -2,11 +2,11 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from jax.experimental.ode import odeint
-from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
-from jax.experimental import mesh_utils
+from jax.sharding import PartitionSpec as P
 
 from supergrad.quantum_system import KronObj
 from supergrad.time_evolution.ode import _parse_hamiltonian, ode_expm
+from supergrad.utils.sharding import sharding_put
 
 
 def sesolve(hamiltonian,
@@ -108,11 +108,7 @@ def sesolve(hamiltonian,
     elif psi0.ndim == 3:
         _simd_sesolve = jax.vmap(_sesolve,
                                  in_axes=(0, None, None, None, None, None))
-        devices = mesh_utils.create_device_mesh((jax.local_device_count(),))
-        mesh = Mesh(devices, 'p')
-        sharding = NamedSharding(mesh, P('p', None, None))
-        # batch psi0 to multi-device
-        psi0 = jax.device_put(psi0, sharding)
+        psi0 = sharding_put(psi0, P('p', None, None))
         return _simd_sesolve(psi0, tlist, h_td, args, solver, options)
     else:
         raise ValueError(

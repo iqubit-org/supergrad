@@ -140,7 +140,7 @@ class Evolve(Helper):
         return self.hilbertspace.idling_hamiltonian_in_prod_basis(
         ), self.hamiltonian_component_and_pulseshape, self.pulse_endtime
 
-    def construct_compensation_function(self):
+    def _construct_compensation_function(self):
         """Constructing the compensation matrix for virtual compensation.
 
         Returns:
@@ -150,7 +150,10 @@ class Evolve(Helper):
         if self.compensation_option in ['only_vz', 'arbit_single']:
             pre_u = tensor(*self.pre_unitaries)
             post_u = tensor(*self.post_unitaries)
-            return lambda sim_u: post_u @ sim_u @ pre_u
+            if self.compensation_option == 'arbit_single':
+                return lambda sim_u: post_u @ sim_u @ pre_u
+            else:
+                return lambda sim_u: (post_u * sim_u.T).T * pre_u
         else:
             return None
 
@@ -188,11 +191,10 @@ class Evolve(Helper):
                                                    solver=self.solver,
                                                    options=self.options,
                                                    **kwargs)
-        if self.compensation_option in ['only_vz', 'arbit_single'
-                                       ] and not _remove_compensation:
-            pre_u = tensor(*self.pre_unitaries)
-            post_u = tensor(*self.post_unitaries)
-            sim_u = post_u @ sim_u @ pre_u
+        if not _remove_compensation:
+            comp_func = self._construct_compensation_function()
+            if comp_func is not None:
+                sim_u = comp_func(sim_u)
         return sim_u
 
     def product_basis(self,
@@ -221,11 +223,10 @@ class Evolve(Helper):
                                                    solver=self.solver,
                                                    options=self.options,
                                                    **kwargs)
-        if self.compensation_option in ['only_vz', 'arbit_single'
-                                       ] and not _remove_compensation:
-            pre_u = tensor(*self.pre_unitaries)
-            post_u = tensor(*self.post_unitaries)
-            sim_u = post_u @ sim_u @ pre_u
+        if not _remove_compensation:
+            comp_func = self._construct_compensation_function()
+            if comp_func is not None:
+                sim_u = comp_func(sim_u)
         return sim_u
 
     def eigen_basis_trajectory(self,
