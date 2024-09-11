@@ -2,11 +2,10 @@ import copy
 import jax
 import jax.numpy as jnp
 from jax.experimental.ode import odeint
-from jax.sharding import PartitionSpec as P
 
 from supergrad.quantum_system import KronObj, LindbladObj
 from supergrad.time_evolution.ode import _parse_hamiltonian, ode_expm
-from supergrad.utils.sharding import sharding_put
+from supergrad.utils.sharding import get_sharding
 
 
 def mesolve(hamiltonian,
@@ -96,7 +95,8 @@ def mesolve(hamiltonian,
         _simd_mesolve = jax.vmap(_mesolve,
                                  in_axes=(0, None, None, None, None, None,
                                           None))
-        rho0 = sharding_put(rho0, P('p', None, None))
+        rho0 = jax.lax.with_sharding_constraint(rho0,
+                                                get_sharding('p', None, None))
         return _simd_mesolve(rho0, tlist, h_td, lind, args, solver, options)
     else:
         raise ValueError(

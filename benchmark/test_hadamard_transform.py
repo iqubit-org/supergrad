@@ -3,7 +3,6 @@ import sys
 from functools import partial
 import jax.numpy as jnp
 import jax
-from jax.sharding import PartitionSpec as P
 
 import pytest
 
@@ -14,7 +13,7 @@ from supergrad.utils.memory_profiling import trace_max_memory_usage
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append('/'.join(dir_path.split('/')[:-1]))
 
-from supergrad.utils.sharding import sharding_put, distributed_state_fidelity
+from supergrad.utils.sharding import get_sharding, distributed_state_fidelity
 
 from benchmark.utils.create_simultaneous_model import create_hadamard_transform
 
@@ -102,7 +101,7 @@ def test_hadamard_unitary_grad_lcam(benchmark, n_qubit):
     benchmark.group = f'gradient_hadamard_unitary_{n_qubit}_qubits'
     # benchmark
     u_ref = hadamard_transform(n_qubit)
-    u_ref = sharding_put(u_ref, P(None, 'p'))
+    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
 
     @jax.jit
     @jax.value_and_grad
@@ -135,7 +134,7 @@ def test_hadamard_unitary_grad_tad(benchmark, n_qubit):
     benchmark.group = f'gradient_hadamard_unitary_{n_qubit}_qubits'
     # benchmark
     u_ref = hadamard_transform(n_qubit)
-    u_ref = sharding_put(u_ref, P(None, 'p'))
+    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
 
     @jax.jit
     @jax.value_and_grad

@@ -2,15 +2,15 @@ import numpy as np
 
 import jax
 import jax.numpy as jnp
-from jax.sharding import Mesh, NamedSharding
+from jax.sharding import Mesh, NamedSharding, PartitionSpec
 from jax.experimental import mesh_utils
 import jaxopt
 
 import supergrad.utils.fidelity as fidelity_lib
 
 
-def sharding_put(data, partition_spec):
-    """Put data to multi-devices with sharding.
+def get_sharding(*partition_spec):
+    """Get multi-devices with sharding.
 
     Args:
         data: `jax.numpy.ndarray`
@@ -21,8 +21,7 @@ def sharding_put(data, partition_spec):
     """
     devices = mesh_utils.create_device_mesh((jax.local_device_count(),))
     mesh = Mesh(devices, 'p')
-    sharding = NamedSharding(mesh, partition_spec)
-    return jax.device_put(data, sharding)
+    return NamedSharding(mesh, PartitionSpec(*partition_spec))
 
 
 def distributed_state_fidelity(target_states, computed_states):

@@ -3,7 +3,6 @@ import sys
 from functools import partial
 import numpy as np
 import jax
-from jax.sharding import PartitionSpec as P
 import jax.numpy as jnp
 import pytest
 
@@ -19,7 +18,7 @@ from supergrad.utils.qiskit_interface import (to_qiskit_static_hamiltonian,
                                               to_qiskit_drive_hamiltonian)
 from supergrad.utils.qutip_interface import (to_qutip_operator,
                                              to_qutip_operator_function_pair)
-from supergrad.utils.sharding import sharding_put, distributed_state_fidelity
+from supergrad.utils.sharding import get_sharding, distributed_state_fidelity
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append('/'.join(dir_path.split('/')[:-1]))
@@ -118,7 +117,7 @@ def test_simultaneous_x_grad_lcam(benchmark, n_qubit):
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
     u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
-    u_ref = sharding_put(u_ref, P(None, 'p'))
+    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
 
     @jax.jit
     @jax.value_and_grad
@@ -151,7 +150,7 @@ def test_simultaneous_x_grad_tad(benchmark, n_qubit):
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
     u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
-    u_ref = sharding_put(u_ref, P(None, 'p'))
+    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
 
     @jax.jit
     @jax.value_and_grad
@@ -184,7 +183,7 @@ def test_simultaneous_x_grad_continuous(benchmark, n_qubit):
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
     u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
-    u_ref = sharding_put(u_ref, P(None, 'p'))
+    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
 
     @jax.jit
     @jax.value_and_grad
@@ -226,7 +225,7 @@ def test_simultaneous_x_grad_odeint(benchmark, n_qubit):
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
     u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
-    u_ref = sharding_put(u_ref, P(None, 'p'))
+    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
 
     @jax.jit
     @jax.value_and_grad

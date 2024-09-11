@@ -6,15 +6,14 @@ os.environ["XLA_FLAGS"] = '--xla_force_host_platform_device_count=8'
 
 import jax
 import jax.numpy as jnp
-from jax.sharding import PartitionSpec as P
 
 from supergrad.helper import Evolve
 from supergrad.utils.gates import hadamard_transform
 from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
-from supergrad.utils.sharding import sharding_put, distributed_state_fidelity, distributed_fidelity_with_auto_vz_compensation
+from supergrad.utils.sharding import get_sharding, distributed_state_fidelity, distributed_fidelity_with_auto_vz_compensation
 
 # %%
-n_qubit = 8
+n_qubit = 4
 chain = MPCFluxonium1D(n_qubit, periodic=False, seed=42)
 chain.create_single_qubit_pulse(range(n_qubit), [50.0] * n_qubit,
                                 True,
@@ -24,7 +23,7 @@ chain.create_single_qubit_pulse(range(n_qubit), [50.0] * n_qubit,
 target_unitary = hadamard_transform(n_qubit)
 # %%
 # batch psi0 to multi-device
-target_unitary = sharding_put(target_unitary, P(None, 'p'))
+target_unitary = jax.device_put(target_unitary, get_sharding(None, 'p'))
 jax.debug.visualize_array_sharding(target_unitary)
 # %%
 evo = Evolve(chain,
@@ -49,12 +48,17 @@ distributed_state_fidelity(output, target_unitary)
 
 
 # %%
+@jax.jit
 def compute_fidelity(params):
     realized_unitary = evo.product_basis(params)
     fidelity, res_unitary = distributed_fidelity_with_auto_vz_compensation(
         target_unitary, realized_unitary)
-    return 1 - fidelity
+    return 1 - fidelity, res_unitary
 
 
-v, g = jax.value_and_grad(compute_fidelity)(evo.all_params)  # 0.07157539
+infid, u = compute_fidelity(evo.all_params)
+jax.debug.visualize_array_sharding(u)
+# %%
+v, g = jax.value_and_grad(compute_fidelity,
+                          has_aux=True)(evo.all_params)  # 0.07157539
 # %%
