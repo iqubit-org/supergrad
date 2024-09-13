@@ -11,14 +11,13 @@ import qutip as qt
 import supergrad
 from supergrad.helper import Evolve
 from supergrad.utils import basis
-from supergrad.utils.gates import x_gate
 from supergrad.utils.fidelity import compute_fidelity_with_1q_rotation_axis
 from supergrad.utils.memory_profiling import trace_max_memory_usage
 from supergrad.utils.qiskit_interface import (to_qiskit_static_hamiltonian,
                                               to_qiskit_drive_hamiltonian)
 from supergrad.utils.qutip_interface import (to_qutip_operator,
                                              to_qutip_operator_function_pair)
-from supergrad.utils.sharding import get_sharding, distributed_state_fidelity
+from supergrad.utils.sharding import distributed_state_fidelity
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append('/'.join(dir_path.split('/')[:-1]))
@@ -42,7 +41,7 @@ def test_simultaneous_x_state_grad_lcam(benchmark, n_qubit):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=5000,
                                 trotter_order=2,
-                                diag_ops=False,
+                                diag_ops=True,
                                 minimal_approach=True,
                                 custom_vjp=True)
     benchmark.group = f'gradient_simultaneous_x_state_{n_qubit}_qubits'
@@ -77,7 +76,7 @@ def test_simultaneous_x_state_grad_tad(benchmark, n_qubit):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=5000,
                                 trotter_order=2,
-                                diag_ops=False,
+                                diag_ops=True,
                                 minimal_approach=True,
                                 custom_vjp=None)
     benchmark.group = f'gradient_simultaneous_x_state_{n_qubit}_qubits'
@@ -111,13 +110,13 @@ def test_simultaneous_x_grad_lcam(benchmark, n_qubit):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=5000,
                                 trotter_order=2,
-                                diag_ops=False,
+                                diag_ops=True,
                                 minimal_approach=True,
                                 custom_vjp=True)
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
-    u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
-    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
+    u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
+    u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
 
     @jax.jit
     @jax.value_and_grad
@@ -144,13 +143,13 @@ def test_simultaneous_x_grad_tad(benchmark, n_qubit):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=5000,
                                 trotter_order=2,
-                                diag_ops=False,
+                                diag_ops=True,
                                 minimal_approach=True,
                                 custom_vjp=None)
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
-    u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
-    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
+    u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
+    u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
 
     @jax.jit
     @jax.value_and_grad
@@ -177,13 +176,13 @@ def test_simultaneous_x_grad_continuous(benchmark, n_qubit):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=5000,
                                 trotter_order=2,
-                                diag_ops=False,
+                                diag_ops=True,
                                 minimal_approach=True,
                                 custom_vjp='CAM')
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
-    u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
-    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
+    u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
+    u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
 
     @jax.jit
     @jax.value_and_grad
@@ -224,8 +223,8 @@ def test_simultaneous_x_grad_odeint(benchmark, n_qubit):
 
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
-    u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
-    u_ref = jax.device_put(u_ref, get_sharding(None, 'p'))
+    u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
+    u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
 
     @jax.jit
     @jax.value_and_grad
