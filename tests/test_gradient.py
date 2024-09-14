@@ -11,16 +11,18 @@ from benchmark.utils.create_simultaneous_model import (create_simultaneous_x,
                                                        create_simultaneous_cnot)
 
 trotter_order_list = [2, 4j, 4, None]
+diag_ops_list = [True, False]
 
 
 @pytest.mark.parametrize('trotter_order', trotter_order_list)
-def test_simultaneous_x_gradient(trotter_order):
+@pytest.mark.parametrize('diag_ops', diag_ops_list)
+def test_simultaneous_x_gradient(trotter_order, diag_ops):
     n_qubit = 2
     astep = 3000
     ref_evo = create_simultaneous_x(n_qubit=n_qubit,
                                     astep=astep,
                                     trotter_order=trotter_order,
-                                    diag_ops=False)
+                                    diag_ops=diag_ops)
 
     @jax.grad
     def cal_ref_grad(params):
@@ -32,7 +34,7 @@ def test_simultaneous_x_gradient(trotter_order):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=astep,
                                 trotter_order=trotter_order,
-                                diag_ops=False,
+                                diag_ops=diag_ops,
                                 custom_vjp=True)
 
     @jax.grad
@@ -49,13 +51,14 @@ def test_simultaneous_x_gradient(trotter_order):
 
 
 @pytest.mark.parametrize('trotter_order', trotter_order_list)
-def test_simultaneous_cnot_gradient(trotter_order):
+@pytest.mark.parametrize('diag_ops', diag_ops_list)
+def test_simultaneous_cnot_gradient(trotter_order, diag_ops):
     n_qubit = 2
     astep = 5000
     ref_evo = create_simultaneous_cnot(n_qubit=n_qubit,
                                        astep=astep,
                                        trotter_order=trotter_order,
-                                       diag_ops=False)
+                                       diag_ops=diag_ops)
 
     @jax.grad
     def cal_ref_grad(params):
@@ -67,7 +70,7 @@ def test_simultaneous_cnot_gradient(trotter_order):
     evo = create_simultaneous_cnot(n_qubit=n_qubit,
                                    astep=astep,
                                    trotter_order=trotter_order,
-                                   diag_ops=False,
+                                   diag_ops=diag_ops,
                                    custom_vjp=True)
 
     @jax.grad

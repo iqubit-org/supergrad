@@ -431,7 +431,8 @@ class KronObj(object):
             #     continue
             eig, eigv = jaxLA.eigh(mat)
             self.data[idx] = [eig]
-            self.diag_unitary[idx] = eigv
+            self.diag_unitary[idx] = jax.lax.stop_gradient(
+                eigv)  # Fix complex casting bug
 
     def compute_contraction_path(self, op_list=None, trotter_order=None):
         """Compute tensor network contraction path.
