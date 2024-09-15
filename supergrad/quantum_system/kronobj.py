@@ -12,7 +12,7 @@ import jax.numpy as jnp
 import jax.scipy.linalg as jaxLA
 import opt_einsum as oe
 
-from supergrad.utils.utility import tensor
+from supergrad.utils.utility import tensor, permute
 
 
 @register_pytree_node_class
@@ -162,14 +162,18 @@ class KronObj(object):
         for mats, local_list in zip(self.data, self.locs):
             if local_list is not None:  # downcasting
                 # construct identity matrix list
-                mat_list = [jnp.eye(dim) for dim in self.dims]
-                for idx, local in enumerate(local_list):
-                    if idx >= len(mats):
-                        mat_list[local] = 1
-                    else:
-                        mat_list[local] = mats[idx]
-                # calculate tensor product
-                data.append([tensor(*mat_list)])
+                ilocs = [
+                    idx for idx, _ in enumerate(self.dims)
+                    if idx not in local_list
+                ]
+                idims = np.array(self.dims)[ilocs].prod()
+                full_mat = tensor(*mats, jnp.eye(idims))
+                tlocs = local_list + ilocs
+                order = [tlocs.index(loc) for loc, _ in enumerate(self.dims)]
+                # permute the full matrix in the correct order
+                data.append([
+                    permute(full_mat, [self.dims[loc] for loc in tlocs], order)
+                ])
             else:
                 data.append(mats)
         return KronObj(data, _nested_inpt=True, dims=self.dims)
@@ -319,7 +323,7 @@ class KronObj(object):
         s = ""
         shape = self.shape
         s += ("Kronecker object: " + "dims = " + str(self.dims) + ", shape = " +
-              str(shape) + ", diag_unitary = " + str(self.diag_status) +
+              str(shape) + ", diag_status = " + str(self.diag_status) +
               ", location_info = " + str(self.locs) + "\n")
         s += "KronObj data =\n"
         s += str(self.data)
@@ -421,18 +425,25 @@ class KronObj(object):
                        locs=self.locs,
                        diag_unitary=diag_unitary)
 
-    def _diagonalize_operator(self):
+    def diagonalize_operator(self):
         """Diagonalize Hermitian to diagonal-unitary representation."""
-        for idx, kron_region in enumerate(self.data):
+        data = []
+        diag_unitary = []
+        for kron_region in self.data:
             mat = tensor(*kron_region)
             # we cannot diagonalize a non-Hermite matrix
             # comment it to enhance jit support
             # if not np.allclose(np.conj(mat).T, mat):
             #     continue
             eig, eigv = jaxLA.eigh(mat)
-            self.data[idx] = [eig]
-            self.diag_unitary[idx] = jax.lax.stop_gradient(
-                eigv)  # Fix complex casting bug
+            data.append([eig])
+            diag_unitary.append(
+                jax.lax.stop_gradient(eigv))  # Fix complex casting bug
+        return KronObj(data,
+                       _nested_inpt=True,
+                       dims=self.dims,
+                       locs=self.locs,
+                       diag_unitary=diag_unitary)
 
     def compute_contraction_path(self, op_list=None, trotter_order=None):
         """Compute tensor network contraction path.
@@ -521,11 +532,8 @@ class KronObj(object):
                         KronObj([eig_vec * lam @ jnp.conj(eig_vec).T],
                                 self.dims, local_info))
                 else:
-                    if len(mat_list) > 1:
-                        # only calculate matrix exponentiation with the terms in `local_info`
-                        obj = tensor(*mat_list) * trotter_coeff
-                    else:
-                        obj = mat_list[0] * trotter_coeff
+                    # only calculate matrix exponentiation with the terms in `local_info`
+                    obj = tensor(*mat_list) * trotter_coeff
                     op_list.append(
                         KronObj([jaxLA.expm(obj)], self.dims, local_info))
                     # note the `expm(obj)` cannot decomposition back to tensor product,

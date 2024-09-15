@@ -493,7 +493,7 @@ def _parse_hamiltonian(q_object, tlist: jnp.ndarray, args: dict,
             const = True
 
     if diag_ops and isinstance(cte, KronObj):
-        cte._diagonalize_operator()
+        cte = cte.diagonalize_operator()
     eig_info = []
     if diag_ops:
         # diagonalize time dependent hamiltonian
