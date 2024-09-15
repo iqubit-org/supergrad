@@ -38,5 +38,8 @@ def compute_fidelity(params):
     return 1 - fid
 
 
-v, g = jax.value_and_grad(compute_fidelity)(evo.all_params)  # 0.01142255
+compute_fidelity(evo.all_params)
+# %%
+v, g = jax.value_and_grad(compute_fidelity)(evo.all_params)
+print(v)  # 0.01142255
 # %%

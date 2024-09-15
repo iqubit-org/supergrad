@@ -171,7 +171,7 @@ class LindbladObj(object):
         s = ""
         shape = self.shape
         s += ("Lindblad object: " + "dims = " + str(self.dims) + ", shape = " +
-              str(shape) + ", diag_unitary = " + str(self.diag_status) +
+              str(shape) + ", diag_status = " + str(self.diag_status) +
               ", location_info = " + str(self.locs) + "\n")
         s += "LindbladObj data =\n"
         s += str(self.data)

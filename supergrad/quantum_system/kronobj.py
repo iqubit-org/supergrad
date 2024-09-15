@@ -1,6 +1,6 @@
-"""The Kronecker Object (KronObj) class is designed to represent k-local Hamiltonian
-in Kronecker product format. It's particularly useful for representing sparse total systems'
-Hamiltonian in a form convenient for computing Einstein summation.
+"""The Kronecker Object (KronObj) class is designed to represent k-body Hamiltonian
+in Kronecker product format. It's particularly useful for representing the sparse
+total system Hamiltonian in a form convenient for computing Einstein summation.
 """
 import numbers
 from math import sqrt
@@ -17,9 +17,9 @@ from supergrad.utils.utility import tensor, permute
 
 @register_pytree_node_class
 class KronObj(object):
-    """The Kronecker Object (KronObj) class is designed to represent k-local Hamiltonian
-    in Kronecker product format. It's particularly useful for representing sparse
-    total systems' Hamiltonian in a form convenient for computing Einstein summation.
+    """The Kronecker Object (KronObj) class is designed to represent k-body Hamiltonian
+    in Kronecker product format. It's particularly useful for representing the sparse
+    total system Hamiltonian in a form convenient for computing Einstein summation.
 
     Additionally, the KronObj class supports mathematical operations such as addition(+)
     and multiplication(@) between KronObj instances.
@@ -134,7 +134,7 @@ class KronObj(object):
     data = property(get_data, set_data)
 
     def _build_sub_kronobj(self, idx):
-        """Return a subset of `kronobj` at selected `idx`."""
+        """Return a subset of `KronObj` at selected `idx`."""
         return KronObj(self.data[idx],
                        dims=self.dims,
                        locs=self.locs[idx],
@@ -432,7 +432,9 @@ class KronObj(object):
         for kron_region in self.data:
             mat = tensor(*kron_region)
             # we cannot diagonalize a non-Hermite matrix
-            # comment it to enhance jit support
+            # Temporarily comment it out to enhance jit support, you must ensure
+            # the input is Hermitian to use diag evolution method.
+
             # if not np.allclose(np.conj(mat).T, mat):
             #     continue
             eig, eigv = jaxLA.eigh(mat)
@@ -536,9 +538,6 @@ class KronObj(object):
                     obj = tensor(*mat_list) * trotter_coeff
                     op_list.append(
                         KronObj([jaxLA.expm(obj)], self.dims, local_info))
-                    # note the `expm(obj)` cannot decomposition back to tensor product,
-                    # the `KronObj.full()` method does not support the form,
-                    # so `KronObj([expm(obj)])` only work in matrix-vector multiplication
             return op_list
 
         def _second_order_expm(p=1.0):
