@@ -4,11 +4,11 @@ import jax.numpy as jnp
 
 from supergrad.helper import Evolve
 from supergrad.utils import basis
-from supergrad.utils.sharding import distributed_state_fidelity, distributed_overlap_with_auto_vz_compensation
+from supergrad.utils.sharding import distributed_overlap_with_auto_vz_compensation
 
 from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
 # %%
-n_qubit = 22
+n_qubit = 4
 chain = MPCFluxonium1D(n_qubit, periodic=False, seed=42)
 chain.create_single_qubit_pulse(range(n_qubit), [50.0] * n_qubit,
                                 True,
@@ -33,11 +33,10 @@ evo = Evolve(chain,
 def compute_fidelity(params):
     initial_state = basis(2**n_qubit)
     realized_state = evo.product_basis(params, initial_state)
-    return 1 - distributed_state_fidelity(target_state, realized_state)
     fid, opt_state = distributed_overlap_with_auto_vz_compensation(
         target_state, realized_state)
     return 1 - fid
 
 
-v, g = jax.value_and_grad(compute_fidelity)(evo.all_params)
+v, g = jax.value_and_grad(compute_fidelity)(evo.all_params)  # 0.01142255
 # %%

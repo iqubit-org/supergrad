@@ -1,16 +1,16 @@
 # %%
 import os
-
+from functools import partial
 # Use 8 CPU devices to test the distributed computation.
 os.environ["XLA_FLAGS"] = '--xla_force_host_platform_device_count=8'
 
 import jax
-import jax.numpy as jnp
 
 from supergrad.helper import Evolve
 from supergrad.utils.gates import hadamard_transform
 from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
-from supergrad.utils.sharding import get_sharding, distributed_state_fidelity, distributed_fidelity_with_auto_vz_compensation
+from supergrad.utils.sharding import (
+    get_sharding, distributed_fidelity_with_auto_vz_compensation)
 
 # %%
 n_qubit = 4
@@ -33,6 +33,7 @@ evo = Evolve(chain,
              options={
                  'astep': 5000,
                  'trotter_order': 2,
+                 'diag_ops': True,
                  'progress_bar': True,
                  'custom_vjp': True,
              })
@@ -43,12 +44,10 @@ fidelity, comp_output = distributed_fidelity_with_auto_vz_compensation(
     target_unitary, output)
 jax.debug.visualize_array_sharding(comp_output)
 
-# %%
-distributed_state_fidelity(output, target_unitary)
-
 
 # %%
 @jax.jit
+@partial(jax.value_and_grad, has_aux=True)
 def compute_fidelity(params):
     realized_unitary = evo.product_basis(params)
     fidelity, res_unitary = distributed_fidelity_with_auto_vz_compensation(
@@ -56,9 +55,7 @@ def compute_fidelity(params):
     return 1 - fidelity, res_unitary
 
 
-infid, u = compute_fidelity(evo.all_params)
+(infid, u), g = compute_fidelity(evo.all_params)
+print(infid)  # 0.02172508
 jax.debug.visualize_array_sharding(u)
-# %%
-v, g = jax.value_and_grad(compute_fidelity,
-                          has_aux=True)(evo.all_params)  # 0.07157539
 # %%
