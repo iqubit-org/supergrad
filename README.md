@@ -38,6 +38,8 @@ pip install supergrad
 
 First, one need to define an interaction graph which describes qubits and their connectivity.
 This is done with creating an instance of `Networkx.Graph` class.
+There is a work-in-progress GUI for creating such graphs available at [https://github.com/iqubit-org/supergrad-gui](https://github.com/iqubit-org/supergrad-gui).
+
 We consider Hamiltonians of the form
 
 ```math
