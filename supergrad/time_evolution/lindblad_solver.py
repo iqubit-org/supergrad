@@ -2,11 +2,10 @@ import copy
 import jax
 import jax.numpy as jnp
 from jax.experimental.ode import odeint
-from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
-from jax.experimental import mesh_utils
 
 from supergrad.quantum_system import KronObj, LindbladObj
 from supergrad.time_evolution.ode import _parse_hamiltonian, ode_expm
+from supergrad.utils.sharding import get_sharding
 
 
 def mesolve(hamiltonian,
@@ -96,11 +95,8 @@ def mesolve(hamiltonian,
         _simd_mesolve = jax.vmap(_mesolve,
                                  in_axes=(0, None, None, None, None, None,
                                           None))
-        devices = mesh_utils.create_device_mesh((jax.local_device_count(),))
-        mesh = Mesh(devices, 'p')
-        sharding = NamedSharding(mesh, P('p', None, None))
-        # batch rho0 to multi-device
-        rho0 = jax.device_put(rho0, sharding)
+        rho0 = jax.lax.with_sharding_constraint(rho0,
+                                                get_sharding('p', None, None))
         return _simd_mesolve(rho0, tlist, h_td, lind, args, solver, options)
     else:
         raise ValueError(
@@ -176,7 +172,8 @@ def mesolve_final_states_w_basis_trans(hamiltonian,
             rho_list = transform_matrix @ rho_list @ transform_matrix.conjugate(
             ).transpose()
             res = mesolve(hamiltonian, rho_list, tlist, **kwargs)
-            return jnp.conj(transform_matrix).T @ res[:, -1, :] @ transform_matrix
+            return jnp.conj(transform_matrix).T @ res[:,
+                                                      -1, :] @ transform_matrix
 
         density_array = _evolving_rhos(transform_matrix, rho_list)
     else:
