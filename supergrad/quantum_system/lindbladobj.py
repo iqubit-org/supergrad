@@ -44,7 +44,7 @@ class LindbladObj(object):
             For example, the first element of left operand is the index of the
             first subsystem in `self.dims`, and so on.
         diag_unitary (array):
-            Unitary and coefficient of diagonal-unitary format.
+            Unitary of diagonal-unitary format.
         _nested_inpt (bool):
             For internal using only.
     """
@@ -82,10 +82,10 @@ class LindbladObj(object):
             if diag_unitary is None or None in diag_unitary:
                 self.diag_unitary = [[None, None]]
             else:
-                for ul_region in inpt:
-                    if ul_region and ul_region[0].ndim == 1:
-                        # convert eigenenergies to diagonal matrix
-                        ul_region = [jnp.diag(ul_region[0])]
+                # for ul_region in inpt:
+                #     if ul_region and ul_region[0].ndim == 1:
+                #         # convert eigenenergies to diagonal matrix
+                #         ul_region = [jnp.diag(ul_region[0])]
                 self.diag_unitary = [diag_unitary]  # nested list
             # identify localized method
             if locs is None:
@@ -163,15 +163,15 @@ class LindbladObj(object):
     @property
     def diag_status(self):
         """The diagonal-unitary format status of subsystems."""
-        return [[ul_diag_info is not None
-                 for ul_diag_info in liou_diag_info]
+        return [[ul_eig_vec is not None
+                 for ul_eig_vec in liou_diag_info]
                 for liou_diag_info in self.diag_unitary]
 
     def __str__(self):
         s = ""
         shape = self.shape
         s += ("Lindblad object: " + "dims = " + str(self.dims) + ", shape = " +
-              str(shape) + ", diag_unitary = " + str(self.diag_status) +
+              str(shape) + ", diag_status = " + str(self.diag_status) +
               ", location_info = " + str(self.locs) + "\n")
         s += "LindbladObj data =\n"
         s += str(self.data)
@@ -192,11 +192,10 @@ class LindbladObj(object):
                 liou_list = []
                 if all(liou_diag_info):
                     raise ValueError('Unsupported diagonal-unitary info.')
-                for ul_region, ul_diag_info in zip(liou_region, liou_diag_info):
+                for ul_region, ul_eig_vec in zip(liou_region, liou_diag_info):
                     if ul_region:
-                        eig_vec, coeff = ul_diag_info
                         liou_list.append([
-                            eig_vec @ ul_region[0] @ jnp.conj(eig_vec).T * coeff
+                            ul_eig_vec @ ul_region[0] @ jnp.conj(ul_eig_vec).T
                         ])
                     else:
                         liou_list.append([])
@@ -252,7 +251,7 @@ class LindbladObj(object):
         ]
         return iter(sublist)
 
-    def __getitem__(self, key: int):
+    def __getitem__(self, key):
 
         if isinstance(key, int):
             return self._build_sub_lindbladobj(key)
@@ -273,7 +272,7 @@ class LindbladObj(object):
             if aham.diag_unitary[0] is None:
                 part_diag_info = None
             else:
-                part_diag_info = []
+                part_diag_info = 0
             self.data += [[[], (-1.0j * aham).data[0]]]
             self.locs += [[[], aham.locs[0]]]
             self.diag_unitary += [[part_diag_info, aham.diag_unitary[0]]]
@@ -326,9 +325,10 @@ class LindbladObj(object):
                     # output keeps the diag representation
                     # only support regular dissipator collapse_b = collapse_a
                     # note here kron_a = kron_b.dag()
-                    new_diag = -0.5 * jnp.diag(
-                        a.data[0][0]).conjugate() * jnp.diag(a.data[0][0])
-                    ad_b = KronObj([jnp.diag(new_diag)],
+                    # new_diag = -0.5 * jnp.diag(
+                    #     a.data[0][0]).conjugate() * jnp.diag(a.data[0][0])
+                    new_diag = -0.5 * jnp.conjugate(a.data[0][0]) * a.data[0][0]
+                    ad_b = KronObj([new_diag],
                                    a.dims,
                                    locs=a.locs[0],
                                    diag_unitary=a.diag_unitary[0])
@@ -337,7 +337,7 @@ class LindbladObj(object):
                 if ad_b.diag_unitary[0] is None:
                     part_diag_info = None
                 else:
-                    part_diag_info = []
+                    part_diag_info = 0
                 self.data += [[[], ad_b.data[0]]]
                 self.locs += [[[], ad_b.locs[0]]]
                 self.diag_unitary += [[part_diag_info, ad_b.diag_unitary[0]]]
@@ -370,14 +370,9 @@ class LindbladObj(object):
                 eig, eigv = jaxLA.eigh(obj)
                 # diagonalize the super operator
                 tensor_dim = np.prod([self.dims[loc] for loc in union_ul_local])
-                self.data[idx] = [jnp.diag(eig).reshape(*[
-                    tensor_dim,
-                ] * 4)]
-                self.diag_unitary[idx] = [
-                    eigv.reshape(*[
-                        tensor_dim,
-                    ] * 4), 1.0
-                ]
+                # self.data[idx] = [jnp.diag(eig).reshape(*[tensor_dim] * 4)]
+                self.data[idx] = [eig.reshape(*[tensor_dim] * 2)]
+                self.diag_unitary[idx] = eigv.reshape(*[tensor_dim] * 4)
                 self.locs[idx] = [union_ul_local, union_ul_local]
             else:
                 mat = tensor(*(liou_region[0] + liou_region[1]))
@@ -387,11 +382,11 @@ class LindbladObj(object):
                     continue
                 eig, eigv = jaxLA.eigh(mat)
                 if liou_region[0]:
-                    self.data[idx] = [[jnp.diag(eig)], []]
-                    self.diag_unitary[idx] = [[eigv, 1.0], []]
+                    self.data[idx] = [[eig], []]
+                    self.diag_unitary[idx] = [eigv, 0]
                 else:
-                    self.data[idx] = [[], [jnp.diag(eig)]]
-                    self.diag_unitary[idx] = [[], [eigv, 1.0]]
+                    self.data[idx] = [[], [eig]]
+                    self.diag_unitary[idx] = [0, eigv]
 
     def __add__(self, other):
         """Addition with LindbladObj on left. The trivial addition is defined as
@@ -710,17 +705,14 @@ class LindbladObj(object):
                     union_ul_local = sorted(set(liou_local[0] + liou_local[1]))
                     if None not in liou_diag:  # cast expm down to exp
                         # diag info will be a order-4 tensor
-                        eig_tensor, coeff = liou_diag
+                        eig_tensor = liou_diag
                         tensor_dim = np.prod(
                             [self.dims[loc] for loc in union_ul_local])
-                        eig_vec = eig_tensor.reshape(*[
-                            tensor_dim**2,
-                        ] * 2)
+                        eig_vec = eig_tensor.reshape(*[tensor_dim**2] * 2)
                         # fix bug about zip function
-                        lam = jnp.exp(trotter_coeff * coeff *
-                                      jnp.diag(liou_region[0].reshape(*[
-                                          tensor_dim**2,
-                                      ] * 2)))
+                        # lam = jnp.exp(trotter_coeff * jnp.diag(
+                        #     liou_region[0].reshape(*[tensor_dim**2] * 2)))
+                        lam = jnp.exp(trotter_coeff * liou_region[0].flatten())
                         liou_local = [union_ul_local, union_ul_local]
                         tensor_expm = eig_vec * lam @ jnp.conj(eig_vec).T
                         inpt = [tensor_expm.reshape(*([
@@ -751,10 +743,8 @@ class LindbladObj(object):
                     # only one of region has non-trivial matrix
                     mat_list = liou_region[0] + liou_region[1]
                     if None not in liou_diag:  # cast expm down to exp
-                        concat_ul_diag = liou_diag[0] + liou_diag[1]
-                        eig_vec, coeff = concat_ul_diag
-                        lam = jnp.exp(trotter_coeff * coeff *
-                                      jnp.diag(mat_list[0]))
+                        eig_vec = liou_diag[0] + liou_diag[1]
+                        lam = jnp.exp(trotter_coeff * mat_list[0])
                         if liou_region[0]:
                             inpt = [[eig_vec * lam @ jnp.conj(eig_vec).T], []]
                         else:
