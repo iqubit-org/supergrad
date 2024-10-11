@@ -123,7 +123,7 @@ def test_cr_gate(solver='ode_expm',
             ham = [ham_static, [wrap_opt, self.pulseshape.create_pulse]]
             self.tlist = [0, self.pulseshape.pulse_endtime]
             u_to_eigen = self.hilbertspace.compute_transform_matrix()
-            psi_list, ar_ix = create_state_init(self.dims, [[0, 2], [1, 2]])
+            psi_list, _ = create_state_init(self._get_dims(), [[0, 2], [1, 2]])
             sim_u = sesolve_final_states_w_basis_trans(ham,
                                                        psi_list,
                                                        self.tlist,
