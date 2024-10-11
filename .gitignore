@@ -169,6 +169,7 @@ _autosummary
 analysis
 .benchmarks
 benchmark/res_data/*.npy
+benchmark/ref_data/*.npy
 
 # dataset
 zenodo

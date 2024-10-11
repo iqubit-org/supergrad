@@ -58,9 +58,14 @@ class Helper(ABC):
         """Get the dimension of the composited quantum system."""
         return self.hilbertspace.dim
 
+    def get_dims(self):
+        return self._get_dims()
+
     @property
     def dims(self):
-        """The dimension of the composited quantum system."""
+        """The dimension of the composited quantum system.
+        Only for internal use temporarily.
+        """
         return self._get_dims()
 
     @property

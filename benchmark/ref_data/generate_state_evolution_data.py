@@ -34,7 +34,7 @@ def compute_evolution_x(n_qubit):
         drive_hamiltonian,
         rotating_frame=static_hamiltonian,
     )
-    u0 = np.eye(np.prod(evo.dims), dtype=complex)
+    u0 = np.eye(np.prod(evo.get_dims(evo.all_params)), dtype=complex)
     results = solver.solve(
         t_span=[0, t_span],
         y0=u0,
@@ -63,7 +63,7 @@ def compute_evolution_cnot(n_qubit):
         drive_hamiltonian,
         rotating_frame=static_hamiltonian,
     )
-    u0 = np.eye(np.prod(evo.dims), dtype=complex)
+    u0 = np.eye(np.prod(evo.get_dims(evo.all_params)), dtype=complex)
     results = solver.solve(
         t_span=[0, t_span],
         y0=u0,
