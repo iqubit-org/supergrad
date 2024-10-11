@@ -59,19 +59,19 @@ def apply_2nz(ps, u):
     """
     # Single qubit gate in 1Q system
     n_qubit = round(len(ps) / 2)
-
+    pauli_0 = np.ones(2)
+    pauli_3 = np.array([1, -1])
     pre_unitaries = [
-        jnp.cos(pre_params) * pauli_mats[0] +
-        1j * jnp.sin(pre_params) * pauli_mats[3] for pre_params in ps[:n_qubit]
+        jnp.cos(pre_params) * pauli_0 + 1j * jnp.sin(pre_params) * pauli_3
+        for pre_params in ps[:n_qubit]
     ]
     post_unitaries = [
-        jnp.cos(post_params) * pauli_mats[0] +
-        1j * jnp.sin(post_params) * pauli_mats[3]
+        jnp.cos(post_params) * pauli_0 + 1j * jnp.sin(post_params) * pauli_3
         for post_params in ps[n_qubit:]
     ]
     u2 = supergrad.tensor(*pre_unitaries)
     u3 = supergrad.tensor(*post_unitaries)
-    return u3 @ u @ u2
+    return (u3 * u.T).T * u2
 
 
 def apply_6nsq_axis(ps, u):
@@ -106,6 +106,44 @@ def apply_6nsq_axis(ps, u):
     u2 = supergrad.tensor(*pre_unitaries)
     u3 = supergrad.tensor(*post_unitaries)
     return u3 @ u @ u2
+
+
+def apply_nz(params, psi):
+    """
+    Apply n Z-gate after finial state.
+
+    Args:
+        params (array): n parameters for single qubit rotation
+        psi (array): state
+    """
+    post_diag = [
+        jnp.array([
+            jnp.cos(post_params) + 1j * jnp.sin(post_params),
+            jnp.cos(post_params) - 1j * jnp.sin(post_params)
+        ]) for post_params in params
+    ]
+
+    ud3 = supergrad.tensor(*post_diag)
+    return ud3[:, jnp.newaxis] * psi
+
+
+def apply_3nsq_axis(params, psi):
+    """
+    Apply 3n single qubit rotation after final state.
+
+    Args:
+        params (array): 3n parameters for single qubit rotation
+        psi (array): state
+    """
+    post_unitaries = [
+        jnp.cos(post_params[1]) * pauli_mats[0] + 1j * jnp.sin(post_params[1]) *
+        (jnp.cos(post_params[0]) * pauli_mats[3] + jnp.sin(post_params[0]) *
+         (jnp.cos(post_params[2]) * pauli_mats[1] +
+          jnp.sin(post_params[2]) * pauli_mats[2])) for post_params in params
+    ]
+
+    u3 = supergrad.tensor(*post_unitaries)
+    return u3 @ psi
 
 
 def log_infidelity_with_vz(params, u_target, u_computed):
@@ -350,30 +388,6 @@ def compute_overlap_with_1q_rotation_axis(psi_target,
     if options is None:
         options = {}
 
-    def apply_nz(params, psi):
-        post_diag = [
-            jnp.array([
-                jnp.cos(post_params) + 1j * jnp.sin(post_params),
-                jnp.cos(post_params) - 1j * jnp.sin(post_params)
-            ]) for post_params in params
-        ]
-
-        ud3 = supergrad.tensor(*post_diag)
-        return ud3[:, jnp.newaxis] * psi
-
-    def apply_3nsq_axis(params, psi):
-        post_unitaries = [
-            jnp.cos(post_params[1]) * pauli_mats[0] +
-            1j * jnp.sin(post_params[1]) *
-            (jnp.cos(post_params[0]) * pauli_mats[3] + jnp.sin(post_params[0]) *
-             (jnp.cos(post_params[2]) * pauli_mats[1] +
-              jnp.sin(post_params[2]) * pauli_mats[2]))
-            for post_params in params
-        ]
-
-        u3 = supergrad.tensor(*post_unitaries)
-        return u3 @ psi
-
     # initialize single qubit compensation
     if compensation_option == 'only_vz':
 
@@ -405,9 +419,9 @@ def compute_overlap_with_1q_rotation_axis(psi_target,
     res = solver.run(initial_guess,
                      psi_target=psi_target,
                      psi_computed=psi_computed)
-    print(initial_guess)
-    print(res.state)
-    print(res.params)
+    # print(initial_guess)
+    # print(res.state)
+    # print(res.params)
     if compensation_option == 'only_vz':
         psi_compensated = apply_nz(res.params, psi_computed)
     else:

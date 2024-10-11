@@ -54,14 +54,16 @@ class SingleQubitCompensation(hk.Module):
         """
         if self.compensation_option == 'only_vz':
             # do single-qubit Z-rotation before and after the time evolution
+            pauli_0 = np.ones(2)
+            pauli_3 = np.array([1, -1])
             pre_unitaries = [
-                jnp.cos(pre_params) * pauli_mats[0] +
-                1j * jnp.sin(pre_params) * pauli_mats[3]
+                jnp.cos(pre_params) * pauli_0 +
+                1j * jnp.sin(pre_params) * pauli_3
                 for pre_params in self.pre_comp_angles
             ]
             post_unitaries = [
-                jnp.cos(post_params) * pauli_mats[0] +
-                1j * jnp.sin(post_params) * pauli_mats[3]
+                jnp.cos(post_params) * pauli_0 +
+                1j * jnp.sin(post_params) * pauli_3
                 for post_params in self.post_comp_angles
             ]
         else:
