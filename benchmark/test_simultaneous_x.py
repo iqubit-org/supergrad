@@ -2,21 +2,22 @@ import os
 import sys
 from functools import partial
 import numpy as np
-import jax.numpy as jnp
 import jax
+import jax.numpy as jnp
 import pytest
 
 from qiskit_dynamics import Solver
 import qutip as qt
 import supergrad
 from supergrad.helper import Evolve
-from supergrad.utils.gates import x_gate
+from supergrad.utils import basis
 from supergrad.utils.fidelity import compute_fidelity_with_1q_rotation_axis
 from supergrad.utils.memory_profiling import trace_max_memory_usage
 from supergrad.utils.qiskit_interface import (to_qiskit_static_hamiltonian,
                                               to_qiskit_drive_hamiltonian)
 from supergrad.utils.qutip_interface import (to_qutip_operator,
                                              to_qutip_operator_function_pair)
+from supergrad.utils.sharding import distributed_state_fidelity
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append('/'.join(dir_path.split('/')[:-1]))
@@ -35,23 +36,24 @@ trotter_order_list = [1, 2, 4j, 4, None]
 
 @pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
-def test_simultaneous_x_grad_propagator(benchmark, n_qubit):
+def test_simultaneous_x_state_grad_lcam(benchmark, n_qubit):
     # bench supergrad
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=5000,
                                 trotter_order=2,
-                                diag_ops=False,
+                                diag_ops=True,
                                 minimal_approach=True,
                                 custom_vjp=True)
-    benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
+    benchmark.group = f'gradient_simultaneous_x_state_{n_qubit}_qubits'
     # benchmark
-    u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
+    target_state = basis(2**n_qubit, 2**n_qubit - 1)
 
     @jax.jit
     @jax.value_and_grad
     def infidelity(params):
-        return abs(1 - compute_fidelity_with_1q_rotation_axis(
-            u_ref, evo.product_basis(params), compensation_option='no_comp')[0])
+        initial_state = basis(2**n_qubit)
+        output = evo.product_basis(params, initial_state)
+        return 1 - distributed_state_fidelity(target_state, output)
 
     @benchmark
     @partial(trace_max_memory_usage, pid=os.getpid())
@@ -62,30 +64,31 @@ def test_simultaneous_x_grad_propagator(benchmark, n_qubit):
     benchmark.extra_info.update({'memory': vg_infidelity[1]})
     # save the gradient
     jnp.save(
-        f'{dir_path}/res_data/grad_propagator_simultaneous_x_{n_qubit}.npy',
+        f'{dir_path}/res_data/grad_lcam_simultaneous_x_state_{n_qubit}.npy',
         vg_infidelity[0])
     assert len(vg_infidelity[0]) == 2
 
 
 @pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
-def test_simultaneous_x_grad_framework(benchmark, n_qubit):
+def test_simultaneous_x_state_grad_tad(benchmark, n_qubit):
     # bench supergrad
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=5000,
                                 trotter_order=2,
-                                diag_ops=False,
+                                diag_ops=True,
                                 minimal_approach=True,
                                 custom_vjp=None)
-    benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
+    benchmark.group = f'gradient_simultaneous_x_state_{n_qubit}_qubits'
     # benchmark
-    u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
+    target_state = basis(2**n_qubit, 2**n_qubit - 1)
 
     @jax.jit
     @jax.value_and_grad
     def infidelity(params):
-        return abs(1 - compute_fidelity_with_1q_rotation_axis(
-            u_ref, evo.product_basis(params), compensation_option='no_comp')[0])
+        initial_state = basis(2**n_qubit)
+        output = evo.product_basis(params, initial_state)
+        return 1 - distributed_state_fidelity(target_state, output)
 
     @benchmark
     @partial(trace_max_memory_usage, pid=os.getpid())
@@ -95,7 +98,73 @@ def test_simultaneous_x_grad_framework(benchmark, n_qubit):
 
     benchmark.extra_info.update({'memory': vg_infidelity[1]})
     # save the gradient
-    jnp.save(f'{dir_path}/res_data/grad_framework_simultaneous_x_{n_qubit}.npy',
+    jnp.save(f'{dir_path}/res_data/grad_tad_simultaneous_x_state_{n_qubit}.npy',
+             vg_infidelity[0])
+    assert len(vg_infidelity[0]) == 2
+
+
+@pytest.mark.benchmark_grad
+@pytest.mark.parametrize('n_qubit', nqubit_list)
+def test_simultaneous_x_grad_lcam(benchmark, n_qubit):
+    # bench supergrad
+    evo = create_simultaneous_x(n_qubit=n_qubit,
+                                astep=5000,
+                                trotter_order=2,
+                                diag_ops=True,
+                                minimal_approach=True,
+                                custom_vjp=True)
+    benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
+    # benchmark
+    u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
+    u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
+
+    @jax.jit
+    @jax.value_and_grad
+    def infidelity(params):
+        return 1 - distributed_state_fidelity(u_ref, evo.product_basis(params))
+
+    @benchmark
+    @partial(trace_max_memory_usage, pid=os.getpid())
+    @jax.block_until_ready
+    def vg_infidelity():
+        return infidelity(evo.all_params)
+
+    benchmark.extra_info.update({'memory': vg_infidelity[1]})
+    # save the gradient
+    jnp.save(f'{dir_path}/res_data/grad_lcam_simultaneous_x_{n_qubit}.npy',
+             vg_infidelity[0])
+    assert len(vg_infidelity[0]) == 2
+
+
+@pytest.mark.benchmark_grad
+@pytest.mark.parametrize('n_qubit', nqubit_list)
+def test_simultaneous_x_grad_tad(benchmark, n_qubit):
+    # bench supergrad
+    evo = create_simultaneous_x(n_qubit=n_qubit,
+                                astep=5000,
+                                trotter_order=2,
+                                diag_ops=True,
+                                minimal_approach=True,
+                                custom_vjp=None)
+    benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
+    # benchmark
+    u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
+    u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
+
+    @jax.jit
+    @jax.value_and_grad
+    def infidelity(params):
+        return 1 - distributed_state_fidelity(u_ref, evo.product_basis(params))
+
+    @benchmark
+    @partial(trace_max_memory_usage, pid=os.getpid())
+    @jax.block_until_ready
+    def vg_infidelity():
+        return infidelity(evo.all_params)
+
+    benchmark.extra_info.update({'memory': vg_infidelity[1]})
+    # save the gradient
+    jnp.save(f'{dir_path}/res_data/grad_tad_simultaneous_x_{n_qubit}.npy',
              vg_infidelity[0])
     assert len(vg_infidelity[0]) == 2
 
@@ -107,18 +176,18 @@ def test_simultaneous_x_grad_continuous(benchmark, n_qubit):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=5000,
                                 trotter_order=2,
-                                diag_ops=False,
+                                diag_ops=True,
                                 minimal_approach=True,
                                 custom_vjp='CAM')
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
-    u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
+    u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
+    u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
 
     @jax.jit
     @jax.value_and_grad
     def infidelity(params):
-        return abs(1 - compute_fidelity_with_1q_rotation_axis(
-            u_ref, evo.product_basis(params), compensation_option='no_comp')[0])
+        return 1 - distributed_state_fidelity(u_ref, evo.product_basis(params))
 
     @benchmark
     @partial(trace_max_memory_usage, pid=os.getpid())
@@ -154,13 +223,13 @@ def test_simultaneous_x_grad_odeint(benchmark, n_qubit):
 
     benchmark.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
     # benchmark
-    u_ref = supergrad.tensor(*[x_gate()] * n_qubit)
+    u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
+    u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
 
     @jax.jit
     @jax.value_and_grad
     def infidelity(params):
-        return abs(1 - compute_fidelity_with_1q_rotation_axis(
-            u_ref, evo.product_basis(params), compensation_option='no_comp')[0])
+        return 1 - distributed_state_fidelity(u_ref, evo.product_basis(params))
 
     @benchmark
     @partial(trace_max_memory_usage, pid=os.getpid())
