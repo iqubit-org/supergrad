@@ -8,6 +8,7 @@ from jax.numpy import interp
 from jax.tree_util import tree_map
 from jax.experimental.ode import odeint
 
+import supergrad
 from supergrad.quantum_system import KronObj, LindbladObj
 from supergrad.utils.progress_bar import scan_tqdm
 
@@ -492,14 +493,16 @@ def _parse_hamiltonian(q_object, tlist: jnp.ndarray, args: dict,
             const = True
 
     if diag_ops and isinstance(cte, KronObj):
-        cte._diagonalize_operator()
+        cte = cte.diagonalize_operator()
     eig_info = []
     if diag_ops:
+        # diagonalize time dependent hamiltonian
         for part in ops:
             part_eig_info = []
             if isinstance(part.oper, KronObj):
                 for nest_mat in part.oper.data:
-                    part_eig_info.append(eigh(nest_mat[0]))
+                    mat = supergrad.tensor(*nest_mat)
+                    part_eig_info.append(eigh(mat))
             eig_info.append(part_eig_info)
 
     # Define a callable Hamiltonian function.
@@ -522,25 +525,19 @@ def _parse_hamiltonian(q_object, tlist: jnp.ndarray, args: dict,
                             eig_val, eig_vec = part_eig_info[idx]
                             # construct KronObj in diag unitary method
                             op_t += KronObj(
-                                [jnp.diag(eig_val)],
+                                [eig_val],
                                 sub_kronobj.dims,
                                 sub_kronobj.locs[0],
-                                diag_unitary=[
-                                    eig_vec,
-                                    part.get_coeff(t, args) * imul
-                                ],
-                            )
+                                diag_unitary=eig_vec,
+                            ) * part.get_coeff(t, args) * imul
                     else:
                         mat = part.oper
                         eig_val, eig_vec = eigh(mat)
                         # construct KronObj in diag unitary method
                         op_t += KronObj(
                             [eig_val],
-                            diag_unitary=[
-                                eig_vec,
-                                part.get_coeff(t, args) * imul
-                            ],
-                        )
+                            diag_unitary=eig_vec,
+                        ) * part.get_coeff(t, args) * imul
             else:
                 for part in ops:
                     op_t += part.oper * part.get_coeff(t, args) * imul

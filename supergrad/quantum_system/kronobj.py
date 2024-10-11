@@ -1,6 +1,6 @@
-"""The Kronecker Object (KronObj) class is designed to represent k-local Hamiltonian
-in Kronecker product format. It's particularly useful for representing sparse total systems'
-Hamiltonian in a form convenient for computing Einstein summation.
+"""The Kronecker Object (KronObj) class is designed to represent k-body Hamiltonian
+in Kronecker product format. It's particularly useful for representing the sparse
+total system Hamiltonian in a form convenient for computing Einstein summation.
 """
 import numbers
 from math import sqrt
@@ -12,14 +12,14 @@ import jax.numpy as jnp
 import jax.scipy.linalg as jaxLA
 import opt_einsum as oe
 
-from supergrad.utils.utility import tensor
+from supergrad.utils.utility import tensor, permute
 
 
 @register_pytree_node_class
 class KronObj(object):
-    """The Kronecker Object (KronObj) class is designed to represent k-local Hamiltonian
-    in Kronecker product format. It's particularly useful for representing sparse
-    total systems' Hamiltonian in a form convenient for computing Einstein summation.
+    """The Kronecker Object (KronObj) class is designed to represent k-body Hamiltonian
+    in Kronecker product format. It's particularly useful for representing the sparse
+    total system Hamiltonian in a form convenient for computing Einstein summation.
 
     Additionally, the KronObj class supports mathematical operations such as addition(+)
     and multiplication(@) between KronObj instances.
@@ -36,7 +36,7 @@ class KronObj(object):
             For example, the first element of locs is the index of the first
             subsystem in `self.dims`, and so on.
         diag_unitary (array):
-            Unitary and coefficient of diagonal-unitary format.
+            Unitary of diagonal-unitary format.
         _nested_inpt (bool):
             For internal using only.
     """
@@ -76,9 +76,7 @@ class KronObj(object):
                 if diag_unitary is None:
                     self.diag_unitary = [None]
                 else:
-                    if inpt[0].ndim == 1:  # directly pass eigenenergies
-                        inpt = [jnp.diag(inpt[0])]
-                    self.diag_unitary = [diag_unitary]  # nested list
+                    self.diag_unitary = [diag_unitary]  # in the list form
                 # identify localized method
                 if locs is None:
                     self.locs = [None]
@@ -136,7 +134,7 @@ class KronObj(object):
     data = property(get_data, set_data)
 
     def _build_sub_kronobj(self, idx):
-        """Return a subset of `kronobj` at selected `idx`."""
+        """Return a subset of `KronObj` at selected `idx`."""
         return KronObj(self.data[idx],
                        dims=self.dims,
                        locs=self.locs[idx],
@@ -145,12 +143,10 @@ class KronObj(object):
     def _downcast_diagonal_unitary(self):
         """Convert the diagonal-unitary Hamiltonian format to dense matrix."""
         data = []
-        for mat, diag_info in zip(self.data, self.diag_unitary):
-            if diag_info is not None:  # downcasting
-                eig_vec, coeff = diag_info
+        for mat, eig_vec in zip(self.data, self.diag_unitary):
+            if eig_vec is not None:  # downcasting
                 if len(mat) == 1:
-                    data.append(
-                        [eig_vec @ mat[0] @ jnp.conj(eig_vec).T * coeff])
+                    data.append([eig_vec * mat[0] @ jnp.conj(eig_vec).T])
                 else:
                     raise TypeError('Unsupported diagonal-unitary format')
             else:
@@ -166,11 +162,18 @@ class KronObj(object):
         for mats, local_list in zip(self.data, self.locs):
             if local_list is not None:  # downcasting
                 # construct identity matrix list
-                mat_list = [jnp.eye(dim) for dim in self.dims]
-                for mat, local in zip(mats, local_list):
-                    mat_list[local] = mat
-                # calculate tensor product
-                data.append([tensor(*mat_list)])
+                ilocs = [
+                    idx for idx, _ in enumerate(self.dims)
+                    if idx not in local_list
+                ]
+                idims = np.array(self.dims)[ilocs].prod()
+                full_mat = tensor(*mats, jnp.eye(idims))
+                tlocs = local_list + ilocs
+                order = [tlocs.index(loc) for loc, _ in enumerate(self.dims)]
+                # permute the full matrix in the correct order
+                data.append([
+                    permute(full_mat, [self.dims[loc] for loc in tlocs], order)
+                ])
             else:
                 data.append(mats)
         return KronObj(data, _nested_inpt=True, dims=self.dims)
@@ -182,7 +185,7 @@ class KronObj(object):
         ]
         return iter(sublist)
 
-    def __getitem__(self, key: int):
+    def __getitem__(self, key):
 
         if isinstance(key, int):
             return self._build_sub_kronobj(key)
@@ -320,7 +323,7 @@ class KronObj(object):
         s = ""
         shape = self.shape
         s += ("Kronecker object: " + "dims = " + str(self.dims) + ", shape = " +
-              str(shape) + ", diag_unitary = " + str(self.diag_status) +
+              str(shape) + ", diag_status = " + str(self.diag_status) +
               ", location_info = " + str(self.locs) + "\n")
         s += "KronObj data =\n"
         s += str(self.data)
@@ -342,7 +345,7 @@ class KronObj(object):
     @property
     def diag_status(self):
         """The diagonal-unitary format status of subsystems."""
-        return [diag_info is not None for diag_info in self.diag_unitary]
+        return [eig_vec is not None for eig_vec in self.diag_unitary]
 
     @property
     def loc_status(self):
@@ -385,42 +388,64 @@ class KronObj(object):
     def transpose(self):
         """Transpose over tensor product"""
         data = []
+        diag_unitary = []
         for nest_list in self.data:
             new_nest_list = []
             for mat in nest_list:
                 new_nest_list.append(mat.T)
             data.append(new_nest_list)
+        for eig_vec in self.diag_unitary:
+            if eig_vec is not None:
+                diag_unitary.append(eig_vec.conj())
+            else:
+                diag_unitary.append(None)
         return KronObj(data,
                        _nested_inpt=True,
                        dims=self.dims,
                        locs=self.locs,
-                       diag_unitary=self.diag_unitary)
+                       diag_unitary=diag_unitary)
 
     def conjugate(self):
         """Conjugate over tensor product"""
         data = []
+        diag_unitary = []
         for nest_list in self.data:
             new_nest_list = []
             for mat in nest_list:
                 new_nest_list.append(mat.conj())
             data.append(new_nest_list)
+        for eig_vec in self.diag_unitary:
+            if eig_vec is not None:
+                diag_unitary.append(eig_vec.conj())
+            else:
+                diag_unitary.append(None)
         return KronObj(data,
                        _nested_inpt=True,
                        dims=self.dims,
                        locs=self.locs,
-                       diag_unitary=self.diag_unitary)
+                       diag_unitary=diag_unitary)
 
-    def _diagonalize_operator(self):
+    def diagonalize_operator(self):
         """Diagonalize Hermitian to diagonal-unitary representation."""
-        for idx, kron_region in enumerate(self.data):
+        data = []
+        diag_unitary = []
+        for kron_region in self.data:
             mat = tensor(*kron_region)
             # we cannot diagonalize a non-Hermite matrix
-            # comment it to enhance jit support
+            # Temporarily comment it out to enhance jit support, you must ensure
+            # the input is Hermitian to use diag evolution method.
+
             # if not np.allclose(np.conj(mat).T, mat):
             #     continue
             eig, eigv = jaxLA.eigh(mat)
-            self.data[idx] = [jnp.diag(eig)]
-            self.diag_unitary[idx] = [eigv, 1.0]
+            data.append([eig])
+            diag_unitary.append(
+                jax.lax.stop_gradient(eigv))  # Fix complex casting bug
+        return KronObj(data,
+                       _nested_inpt=True,
+                       dims=self.dims,
+                       locs=self.locs,
+                       diag_unitary=diag_unitary)
 
     def compute_contraction_path(self, op_list=None, trotter_order=None):
         """Compute tensor network contraction path.
@@ -502,24 +527,17 @@ class KronObj(object):
                                 reversed(self.locs))
             else:
                 scan_list = zip(self.data, self.diag_unitary, self.locs)
-            for mat_list, diag_info, local_info in scan_list:
-                if diag_info is not None:  # cast expm down to exp
-                    eig_vec, coeff = diag_info
-                    lam = jnp.exp(trotter_coeff * coeff * jnp.diag(mat_list[0]))
+            for mat_list, eig_vec, local_info in scan_list:
+                if eig_vec is not None:  # cast expm down to exp
+                    lam = jnp.exp(trotter_coeff * mat_list[0])
                     op_list.append(
                         KronObj([eig_vec * lam @ jnp.conj(eig_vec).T],
                                 self.dims, local_info))
                 else:
-                    if len(mat_list) > 1:
-                        # only calculate matrix exponentiation with the terms in `local_info`
-                        obj = tensor(*mat_list) * trotter_coeff
-                    else:
-                        obj = mat_list[0] * trotter_coeff
+                    # only calculate matrix exponentiation with the terms in `local_info`
+                    obj = tensor(*mat_list) * trotter_coeff
                     op_list.append(
                         KronObj([jaxLA.expm(obj)], self.dims, local_info))
-                    # note the `expm(obj)` cannot decomposition back to tensor product,
-                    # the `KronObj.full()` method does not support the form,
-                    # so `KronObj([expm(obj)])` only work in matrix-vector multiplication
             return op_list
 
         def _second_order_expm(p=1.0):
