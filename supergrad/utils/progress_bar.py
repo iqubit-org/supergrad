@@ -1,7 +1,11 @@
+from functools import partial
 import jax
 import jax.numpy as jnp
-from jax.experimental import host_callback
 from tqdm import tqdm
+
+
+def pass_operands(operands):
+    return operands
 
 
 def build_tqdm(n: int, print_rate: int = None, fwd_ad: bool = False):
@@ -27,92 +31,84 @@ def build_tqdm(n: int, print_rate: int = None, fwd_ad: bool = False):
 
     def _id_tap_tqdm_progress(iter_num, message):
 
-        def _define_tqdm(arg, transform, device):
-            if device == jax.devices()[0]:
+        def _define_tqdm(operand):
+            if jax.process_index() == 0:
                 tqdm_bars[0] = tqdm(range(n))
                 tqdm_bars[0].set_description(message, refresh=False)
 
-        def _update_tqdm(arg, transform, device):
-            if device == jax.devices()[0]:
-                tqdm_bars[0].update(arg)
+        def _update_tqdm(arg, operand):
+            if jax.process_index() == 0:
+                tqdm_bars[0].update(int(arg))
 
         _ = jax.lax.cond(
             iter_num == 0,
-            lambda _: host_callback.id_tap(
-                _define_tqdm, None, result=iter_num, tap_with_device=True),
-            lambda _: iter_num,
+            partial(jax.debug.callback, _define_tqdm),
+            pass_operands,
             operand=None,
         )
 
         _ = jax.lax.cond(
             # update tqdm by print rate
             (iter_num % print_rate == 0) & (iter_num != n - remainder),
-            lambda _: host_callback.id_tap(
-                _update_tqdm, print_rate, result=iter_num, tap_with_device=True
-            ),
-            lambda _: iter_num,
+            partial(jax.debug.callback, _update_tqdm, print_rate),
+            pass_operands,
             operand=None,
         )
 
         _ = jax.lax.cond(
             # update tqdm by remainder
             iter_num == n - remainder,
-            lambda _: host_callback.id_tap(
-                _update_tqdm, remainder, result=iter_num, tap_with_device=True),
-            lambda _: iter_num,
+            partial(jax.debug.callback, _update_tqdm, remainder),
+            pass_operands,
             operand=None,
         )
 
-    def _close_tqdm(args, transform, device):
-        if tqdm_bars and device == jax.devices()[0]:
+    def _close_tqdm(operand):
+        if tqdm_bars and jax.process_index() == 0:
             tqdm_bars[0].close()
 
     if fwd_ad:
 
-        def _update_progress_bar(iter_num, results):
+        def _update_progress_bar(iter_num, result):
             """Updates tqdm in a JAX scan or loop."""
             message = f'Time evolution for {n:,} steps'
             _id_tap_tqdm_progress(iter_num, message)
-            results = jax.lax.cond(
+            _ = jax.lax.cond(
                 iter_num == n - 1,
-                lambda _: host_callback.id_tap(
-                    _close_tqdm, None, result=results, tap_with_device=True),
-                lambda _: results,
+                partial(jax.debug.callback, _close_tqdm),
+                pass_operands,
                 operand=None,
             )
-            return iter_num, results
+            return iter_num, result
     else:
 
         @jax.custom_vjp
-        def _update_progress_bar(iter_num, results):
+        def _update_progress_bar(iter_num, result):
             """Updates tqdm in a JAX scan or loop."""
             message = f'Forward time evolution for {n:,} steps'
             _id_tap_tqdm_progress(iter_num, message)
-            results = jax.lax.cond(
+            _ = jax.lax.cond(
                 iter_num == n - 1,
-                lambda _: host_callback.id_tap(
-                    _close_tqdm, None, result=results, tap_with_device=True),
-                lambda _: results,
+                partial(jax.debug.callback, _close_tqdm),
+                pass_operands,
                 operand=None,
             )
-            return iter_num, results
+            return iter_num, result
 
-        def _update_progress_bar_fwd(iter_num, results):
-            return _update_progress_bar(iter_num, results), iter_num
+        def _update_progress_bar_fwd(iter_num, result):
+            return _update_progress_bar(iter_num, result), iter_num
 
-        def _update_progress_bar_bwd(residual, cot_results):
+        def _update_progress_bar_bwd(residual, cot_result):
             message = f'Backward time evolution for {n:,} steps'
             iter_num = n - residual - 1
             _id_tap_tqdm_progress(iter_num, message)
-            cot_results = jax.lax.cond(
+            _ = jax.lax.cond(
                 iter_num == n - 1,
-                lambda _: host_callback.id_tap(
-                    _close_tqdm, None, result=cot_results, tap_with_device=True
-                ),
-                lambda _: cot_results,
+                partial(jax.debug.callback, _close_tqdm),
+                pass_operands,
                 operand=None,
             )
-            return cot_results
+            return cot_result
 
         _update_progress_bar.defvjp(_update_progress_bar_fwd,
                                     _update_progress_bar_bwd)

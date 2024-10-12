@@ -171,12 +171,11 @@ def scipy_callback_wrapper(fun: Callable, unflatten: Callable):
     return unflatten_callback
 
 
-@implements(minimize,
-            lax_description="""
+@implements(
+    minimize, """
 New methods are implemented in arguments ``jac`` and ``hess``.
 If ``jac`` is 'jax', the gradient vector will be calculate by JAX.
-If ``hess`` is 'jax', the Hessian matrix will be calculate by JAX.""",
-            extra_params="""
+If ``hess`` is 'jax', the Hessian matrix will be calculate by JAX.
 jit : bool, optional
     True for enable just-in-time compile.
 fwd_ad : bool, optional
