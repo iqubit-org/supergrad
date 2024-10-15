@@ -1,6 +1,7 @@
 from typing import Tuple
 import itertools
 import numpy as np
+from numpy import pi
 import jax
 import jax.numpy as jnp
 import jaxopt
@@ -420,7 +421,8 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
                                            u_computed,
                                            opt_method: str = 'gd',
                                            compensation_option='only_vz',
-                                           options: dict = None):
+                                           options: dict = None,
+                                           multi_init: bool = False):
     """
     Compute fidelity, allows for any single qubit rotation before/after
 
@@ -435,19 +437,40 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
             ['no_comp', 'only_vz', 'arbit_single']
         options (dict): additional keyword arguments to be passed to the `jaxopt`
             optimizer.
+        multi_init: use multiple initial guess to avoid local minimum.
+            Only useful for `lbfgs` and `gd`.
     """
     assert compensation_option in ['no_comp', 'only_vz', 'arbit_single']
     n_qubit = round(np.log2(u_target.shape[0]))
     if options is None:
         options = {}
     f = compute_average_fidelity_with_leakage
+
+    # Multiple initial guess
+    initial_guess_multi = jnp.zeros(0)
     # initialize single qubit compensation
     if compensation_option == 'only_vz':
         error = log_infidelity_with_vz
         initial_guess = jnp.zeros([2 * n_qubit])
+        if multi_init:
+            initial_guess_multi = jnp.eye(2 * n_qubit)
     elif compensation_option == 'arbit_single':
         error = log_infidelity_with_vsq
         initial_guess = jnp.zeros([2 * n_qubit, 3])
+        if multi_init:
+            # Setup several starting points per qubit (others zero)
+            # 2x2x2 combination of three angles (duplicated removed) with randomness
+            initial_guess_1q = np.array([
+                                    [0+0.4, 0+0.2, 0+0.65],
+                                    [0.2, pi/2+0.3, 0.0+0.45],
+                                    [pi/2 - 0.3, pi/2 - 0.4, 0.0 + 0.35],
+                                    [pi/2 - 0.5, pi/2 - 0.6, pi/2 + 0.35],
+                                    ])
+            n_guess = initial_guess_1q.shape[0]
+            initial_guess_multi = np.zeros((n_guess * n_qubit, 2 * n_qubit, 3))
+            for ix_q in range(n_qubit):
+                initial_guess_multi[ix_q * n_guess: ix_q * n_guess + n_guess,  ix_q, : ] = initial_guess_1q
+            initial_guess_multi = jnp.asarray(initial_guess_multi)
     elif compensation_option == 'no_comp':
         return f(u_target, u_computed).real, u_computed
 
@@ -485,7 +508,11 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
             'opt_method should be `gd`, `gd_init2`, `lbfgs`, `simple_vz` or `iswap_vz`.'
         )
 
-    res = solver.run(initial_guess, u_target=u_target, u_computed=u_computed)
+    if multi_init and opt_method in ['lbfgs', 'gd']:
+        list_res = [solver.run(initial_guess_single, u_target=u_target, u_computed=u_computed) for initial_guess_single in initial_guess_multi]
+        res = list_res[jnp.argmin(jnp.asarray([x.state.value for x in list_res]))]
+    else:
+        res = solver.run(initial_guess, u_target=u_target, u_computed=u_computed)
     # print(initial_guess)
     # print(res.state)
     # print(res.params)
