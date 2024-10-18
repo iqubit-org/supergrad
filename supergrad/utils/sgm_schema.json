@@ -1,6 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft/2020-12/schema#",
-  "$id": "http://iqubit.org/sgm_schema_v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iqubit.org/sgm_schema_v1.json",
   "title": "SuperGradModel",
   "description": "Define the SGM file format used to I/O SuperGrad models",
   "type": "object",

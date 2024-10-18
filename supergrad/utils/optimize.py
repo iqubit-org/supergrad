@@ -83,7 +83,11 @@ def scipy_optimize_wrapper(fun: Callable,
                 pp.pprint(convert_to_json_compatible(args_list[0]))
                 print('gradient:')
                 pp.pprint(grad)
-                print(f'loss: {float(scipy_val):f}')
+                # Remove the shape to convert
+                v2 = scipy_val
+                if len(v2.shape) == 1:
+                    v2 = v2[0]
+                print(f'loss: {float(v2):f}')
                 step += 1
             return scipy_val, scipy_grad
 
