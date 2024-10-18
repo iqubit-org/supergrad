@@ -57,6 +57,42 @@ class PulseBase(ABC):
         return self.length + self.delay
 
 
+class PulseConstant(PulseBase):
+    """The constant envelope pulse.
+
+    Args:
+        length: the length of pulse
+        amp: the amplitude of pulse
+        delay: time delay for waiting other gate operations
+        modulate_wave(bool): True for generate modulated sine wave
+        name: module name
+
+    Attributes:
+        amp: max amplitude of the trapezoid
+        t_ramp: time of the rising and falling edges
+        t_plateau: the holding time of the plateau of the waveform
+        length: the length of pulse shape
+    """
+    def __init__(
+            self,
+            length=False,  # unused argument
+            amp=None,
+            delay=0,
+            modulate_wave=False,
+            omega_d=0,
+            phase=0,
+            name: str = 'pulse_constant'):
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
+
+    def create_envelope_pulse(self, t, args=None):
+        t_pulse1 = t - self.delay
+        t_pulse2 = -(t - self.delay - self.length)
+        shape = jnp.where(t_pulse1 < 0, 0, jnp.where(t_pulse2 < 0, 0, 1))
+        return shape * self.amp
+
+
+
 class PulseTrapezoid(PulseBase):
     """The trapezoid pulse.
 
@@ -465,6 +501,41 @@ class PulseWithDRAG(PulseBase):
         output -= self.lam * d_envelope(t) * jnp.sin(self.omega_d * t_pulse +
                                                      self.phase)
         return output * ((t_pulse >= 0) & (t_pulse <= 0 + self.length))
+
+class PulseSine(PulseBase):
+    """Creates sine style pulse from phase 0 to 2pi,
+
+    The integral of this pulse is 0, so it is not normalized at min/max are [-1, 1].
+
+    Args:
+        length: the length of pulse
+        amp: the amplitude of pulse
+        delay: time delay for waiting other gate operations, unit in ns
+        modulate_wave(bool): True for generate modulated sine wave
+        name: module name
+
+    Returns:
+        an array of amplitudes
+    """
+
+    def __init__(self,
+                 length=None,
+                 amp=None,
+                 delay=0,
+                 modulate_wave=False,
+                 omega_d=0,
+                 phase=0,
+                 name: str = 'pulse_sin'):
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
+
+    def create_envelope_pulse(self, t, args={}):
+        t_pulse = t - self.delay
+        i_quad = jnp.sin(2 * jnp.pi / self.length * (t_pulse - self.length / 2))
+
+        shape = (i_quad) * (t_pulse >= 0) * (t_pulse <= self.length) * self.amp
+
+        return shape
 
 
 def draw(
