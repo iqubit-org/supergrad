@@ -87,6 +87,53 @@ def _parse_pulse_name(q: str, name: str, pulse: str):
     return key
 
 
+def _create_qubit_resonator_interaction(k, q1, q2, subsystem_list, idx_q1,
+                                        idx_q2, **kwargs):
+    """Create dipole interaction between qubit and resonator.
+
+    Args:
+        k: coupling type
+        q1: q1 name
+        q2: q2 name
+        subsystem_list: a list of SQC components
+        idx_q1: index of q1 in the subsystem_list
+        idx_q2: index of q2 in the subsystem_list
+    """
+    if k.startswith('capacitive'):
+        try:
+            return parse_interaction(
+                op1=subsystem_list[idx_q1].n_operator,
+                op2=subsystem_list[idx_q2].annihilation_operator,
+                add_hc=True,
+                name=_parse_edges_name(k, q1, q2),
+                **kwargs)
+        except AttributeError:
+            return parse_interaction(
+                op1=subsystem_list[idx_q1].annihilation_operator,
+                op2=subsystem_list[idx_q2].n_operator,
+                add_hc=True,
+                name=_parse_edges_name(k, q1, q2),
+                **kwargs)
+    elif k.startswith('inductive'):
+        try:
+            return parse_interaction(
+                op1=subsystem_list[idx_q1].phi_operator,
+                op2=subsystem_list[idx_q2].annihilation_operator,
+                add_hc=True,
+                name=_parse_edges_name(k, q1, q2),
+                **kwargs)
+        except AttributeError:
+            return parse_interaction(
+                op1=subsystem_list[idx_q1].annihilation_operator,
+                op2=subsystem_list[idx_q2].phi_operator,
+                add_hc=True,
+                name=_parse_edges_name(k, q1, q2),
+                **kwargs)
+    else:
+        raise ValueError(
+            'Operator type should be either capacitive or inductive.')
+
+
 class SCGraph(nx.Graph):
     """Graph for storing parameters of qubits, their coupling strength
     and the control pulses.
@@ -125,7 +172,10 @@ class SCGraph(nx.Graph):
         else:
             raise ValueError('Please use integer as random seed.')
 
-    def add_lcj_params_variance_to_graph(self, multi_err=0.01, seed=1):
+    def add_lcj_params_variance_to_graph(self,
+                                         multi_err=0.01,
+                                         seed=1,
+                                         prefix=None):
         """Assign (random) values of variance to superconducting qubits' parameters
         ['ec', 'ej', 'el'] in the graph. Note that here we only generate and store
         the multiplicative factors in the graph. They are not applied yet.
@@ -136,18 +186,22 @@ class SCGraph(nx.Graph):
                 multiplied to each parameter, where N is sampled from normal
                 distribution.
             seed (int): the random seed to generate parameters variance.
+            prefix (str): the prefix of the component which need to be assigned
+                variance. Default is None, which means all components will be
+                assigned variance.
         """
         # generate PRNGKey by setter
         self.seed = seed
         for node_name in self.sorted_nodes:
-            self.key, subkey = jax.random.split(self.key)
-            node = NodeView(self)[node_name]
-            params_variance = 1 + jax.random.normal(subkey,
-                                                    shape=(3,)) * multi_err
-            variance = {}
-            for i, item in enumerate(['ec', 'ej', 'el']):
-                variance[item] = params_variance[i]
-            node['variance'] = variance
+            if prefix is None or node_name.startswith(prefix):
+                self.key, subkey = jax.random.split(self.key)
+                node = NodeView(self)[node_name]
+                params_variance = 1 + jax.random.normal(subkey,
+                                                        shape=(3,)) * multi_err
+                variance = {}
+                for i, item in enumerate(['ec', 'ej', 'el']):
+                    variance[item] = params_variance[i]
+                node['variance'] = variance
 
     def _convert_graph_to_pulse_parameters(self, node, node_name, params_haiku):
         """Convert a networkX graph to Haiku's parameters dictionary.
@@ -236,7 +290,7 @@ class SCGraph(nx.Graph):
             if node_type not in type_list or not share_params:
                 qubit_params = {}
                 attr_dict = dict(node)
-                for kw in ['ec', 'ej', 'el', 'phiext']:
+                for kw in ['ec', 'ej', 'el', 'phiext', 'f_res']:
                     val = attr_dict.pop(kw, None)
                     if val is not None:
                         qubit_params.update({kw: val})
@@ -376,6 +430,16 @@ class SCGraph(nx.Graph):
                             subsystem_list[idx_q1].phi_operator,
                             subsystem_list[idx_q2].phi_operator
                         ]
+                    elif k.endswith('resonator'):
+                        temp_pair = _create_qubit_resonator_interaction(
+                            k,
+                            q1,
+                            q2,
+                            subsystem_list,
+                            idx_q1,
+                            idx_q2,
+                            constant=True)
+                        mirror.operator_list = temp_pair.operator_list
                 interaction_list.append(mirrored_interaction_pair)
             else:
                 interaction_pair = []
@@ -411,6 +475,10 @@ class SCGraph(nx.Graph):
                                     op1=subsystem_list[idx_q1].phi_operator,
                                     op2=subsystem_list[idx_q2].phi_operator,
                                     name=_parse_edges_name(k, q1, q2)))
+                        elif k.endswith('resonator'):
+                            interaction_pair.append(
+                                _create_qubit_resonator_interaction(
+                                    k, q1, q2, subsystem_list, idx_q1, idx_q2))
                 interaction_list.append(interaction_pair)
 
             edge_type_list.append(edge_type)

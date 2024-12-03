@@ -7,6 +7,43 @@ import networkx as nx
 from supergrad.scgraph.graph import SCGraph
 from supergrad.helper.compute_spectrum import Spectrum
 
+# device parameters for frequency pattern
+fluxonium_type_1 = {
+    "ec": 1.0 * 2 * np.pi,
+    "ej": 4.0 * 2 * np.pi,
+    "el": 0.9 * 2 * np.pi,
+    "shared_param_mark": "grey",
+    "phiext": np.pi,
+    "system_type": "fluxonium",
+}
+
+fluxonium_type_2 = {
+    "ec": 1.0 * 2 * np.pi,
+    "ej": 4.0 * 2 * np.pi,
+    "el": 1.0 * 2 * np.pi,
+    "shared_param_mark": 'blue',
+    "phiext": np.pi,
+    "system_type": "fluxonium",
+}
+
+fluxonium_type_3 = {
+    "ec": 1.0 * 2 * np.pi,
+    "ej": 4.0 * 2 * np.pi,
+    "el": 1.1 * 2 * np.pi,
+    "shared_param_mark": "green",
+    "phiext": np.pi,
+    "system_type": "fluxonium",
+}
+
+mp_coupling = {
+    "capacitive_coupling": {
+        "strength": 20.0e-3 * 2 * np.pi
+    },
+    "inductive_coupling": {
+        "strength": -1.0 * 2e-3 * 2 * np.pi
+    },
+}
+
 
 class MPCFluxonium1D(SCGraph):
     """The general graph for 1d multipath coupling fluxonium chain. One could
@@ -23,43 +60,6 @@ class MPCFluxonium1D(SCGraph):
 
     def __init__(self, n_qubit: int = None, periodic=None, seed=None):
         super().__init__()
-
-        # device parameters for frequency pattern
-        fluxonium_type_1 = {
-            "ec": 1.0 * 2 * np.pi,
-            "ej": 4.0 * 2 * np.pi,
-            "el": 0.9 * 2 * np.pi,
-            "shared_param_mark": "grey",
-            "phiext": np.pi,
-            "system_type": "fluxonium",
-        }
-
-        fluxonium_type_2 = {
-            "ec": 1.0 * 2 * np.pi,
-            "ej": 4.0 * 2 * np.pi,
-            "el": 1.0 * 2 * np.pi,
-            "shared_param_mark": 'blue',
-            "phiext": np.pi,
-            "system_type": "fluxonium",
-        }
-
-        fluxonium_type_3 = {
-            "ec": 1.0 * 2 * np.pi,
-            "ej": 4.0 * 2 * np.pi,
-            "el": 1.1 * 2 * np.pi,
-            "shared_param_mark": "green",
-            "phiext": np.pi,
-            "system_type": "fluxonium",
-        }
-
-        mp_coupling = {
-            "capacitive_coupling": {
-                "strength": 20.0e-3 * 2 * np.pi
-            },
-            "inductive_coupling": {
-                "strength": -1.0 * 2e-3 * 2 * np.pi
-            },
-        }
 
         # initialize graph
         if n_qubit is not None:

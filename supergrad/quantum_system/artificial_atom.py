@@ -366,7 +366,8 @@ class Resonator(QuantumSystem):
                  remove_zpe: bool = False,
                  constant: bool = False,
                  truncated_dim: int = 10,
-                 name: str = 'resonator') -> None:
+                 name: str = 'resonator',
+                 *args, **kwargs) -> None:
         super().__init__(name=name)
 
         if not constant:
@@ -384,6 +385,11 @@ class Resonator(QuantumSystem):
     @property
     def qdevice_type(self):
         return 'resonator'
+
+    def add_lcj_params_variance(self, var=None):
+        """Function to add variance to (device parameters).
+        """
+        pass
 
     def idling_hamiltonian(self):
         """Create the hamiltonian matrix of the resonator.
