@@ -8,7 +8,8 @@ from networkx.classes.reportviews import EdgeView, NodeView
 
 from supergrad.time_evolution.pulseshape import (PulseCosine, PulseTrapezoid,
                                                  PulseCosineRamping, PulseTanh,
-                                                 PulseErf, PulseGaussian)
+                                                 PulseErf, PulseGaussian,
+                                                 PulseIdle)
 from supergrad.utils.utility import identity_wrap, convert_to_haiku_dict
 
 from supergrad.quantum_system.artificial_atom import (Fluxonium, Transmon,
@@ -29,7 +30,8 @@ pulse_shape_dict = {
     'rampcos': PulseCosineRamping,
     'tanh': PulseTanh,
     'erf': PulseErf,
-    'gaussian': PulseGaussian
+    'gaussian': PulseGaussian,
+    'idle': PulseIdle
 }
 
 

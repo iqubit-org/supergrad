@@ -29,7 +29,7 @@ class Evolve(Helper):
             `graph.nodes['qubit']['shared_param_mark']`.
         unify_coupling (bool): Let all couplings in the quantum system be the same.
             TODO: if set to true, which coupling will be used to do the computation?
-        coupler_subsystem: Qubits which we set to `|` 0> initially and at the end.
+        idle_subsystem: Qubits which we set to `|` 0> initially and at the end.
             TODO: make this more general.
         compensation_option: Set single qubit compensation strategy, should be in
             ['no_comp', 'only_vz', 'arbit_single']. 'no_comp' means we do no
@@ -48,7 +48,7 @@ class Evolve(Helper):
                  share_params=False,
                  unify_coupling=False,
                  compensation_option='no_comp',
-                 coupler_subsystem=[],
+                 idle_subsystem=[],
                  solver='ode_expm',
                  options={
                      'astep': 2000,
@@ -63,7 +63,7 @@ class Evolve(Helper):
         self.add_random = add_random
         self.share_params = share_params
         self.unify_coupling = unify_coupling
-        self.coupler_subsystem = coupler_subsystem
+        self.idle_subsystem = idle_subsystem
         if compensation_option not in ['no_comp', 'only_vz', 'arbit_single']:
             raise NotImplementedError(
                 f'Strategy {compensation_option} has not been implemented.')
@@ -85,7 +85,7 @@ class Evolve(Helper):
             self.hilbertspace, modulate_wave=True)
         if self.compensation_option in ['only_vz', 'arbit_single']:
             sqc = SingleQubitCompensation(self.graph, self.compensation_option,
-                                          self.coupler_subsystem)
+                                          self.idle_subsystem)
             self.pre_unitaries, self.post_unitaries = sqc.create_unitaries()
 
     @property
@@ -121,7 +121,7 @@ class Evolve(Helper):
         if psi_list is None:
             states_config = []
             for i, node in enumerate(self.graph.sorted_nodes):
-                if node in self.coupler_subsystem:
+                if node in self.idle_subsystem:
                     states_config.append([i, 1])
                 else:
                     states_config.append([i, 2])

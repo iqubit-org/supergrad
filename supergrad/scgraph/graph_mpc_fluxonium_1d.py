@@ -327,3 +327,27 @@ class MPCFluxonium1D(SCGraph):
                                                  dic_pulse)
                 self.add_node(ix_qubit, pulsesq=dic2)
         return transform_matrix
+
+    def create_idle_pulse(self, ix_qubit_list: int, tg_list: int):
+        """Creates idle pulses in the quantum processor.
+
+        This function supports any multipath coupling model implemented.
+
+        `index` is a model-dependent parameter depends on `self.sorted_nodes`
+
+        Args:
+            ix_qubit_list: target qubit index. `ix_pair` is a model-dependent
+            parameter, is the qubit index, indicates where to apply the drive.
+            tg_list: the gate time
+        """
+        for ix_qubit, tg in zip(ix_qubit_list, tg_list):
+            name_drive = self.sorted_nodes[ix_qubit]
+            dic_pulse = {
+                "length": float(tg),
+                "pulse_type": 'idle',
+                "operator_type": "n_operator",
+                "delay": 0.0,
+            }
+            # update amplitude
+            new_pulse = deepcopy(dic_pulse)
+            self.add_node(name_drive, pulsesq=new_pulse)

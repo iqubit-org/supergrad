@@ -62,6 +62,31 @@ class PulseBase(hk.Module, ABC):
         return self.length + self.delay
 
 
+class PulseIdle(PulseBase):
+    """Idle pulse for waiting other operations.
+
+    Args:
+        length: the length of pulse
+        delay: time delay for waiting other gate operations
+        name: module name
+    """
+
+    def __init__(self,
+                 length=None,
+                 delay=0,
+                 name: str = 'pulse_idle',
+                 *args,
+                 **kwargs):
+        super().__init__(length,
+                         amp=0.0,
+                         delay=delay,
+                         modulate_wave=False,
+                         name=name)
+
+    def create_envelope_pulse(self, t, args={}):
+        return jnp.zeros_like(t)
+
+
 class PulseTrapezoid(PulseBase):
     """The trapezoid pulse.
 

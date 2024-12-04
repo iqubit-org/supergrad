@@ -22,7 +22,7 @@ evo = Evolve(qubit_subset,
              truncated_dim,
              add_random,
              share_params,
-             coupler_subsystem=['q1', 'q3'],
+             idle_subsystem=['q1', 'q3'],
              compensation_option=compensation_option,
              options={
                  'astep': 5000,

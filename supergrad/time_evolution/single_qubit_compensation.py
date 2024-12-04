@@ -19,7 +19,7 @@ class SingleQubitCompensation(hk.Module):
         graph: SuperGrad graph
         compensation_option (string): Set single qubit compensation strategy,
             should be in ['only_vz', 'arbit_single']
-        coupler_subsystem: the name of coupler subsystem should be keep in |0>
+        idle_subsystem: the name of coupler subsystem should be keep in |0>
             during the evolution.
         name: module name
     """
@@ -27,7 +27,7 @@ class SingleQubitCompensation(hk.Module):
     def __init__(self,
                  graph: SCGraph,
                  compensation_option='only_vz',
-                 coupler_subsystem=[],
+                 idle_subsystem=[],
                  name: str = 'single_q_compensation'):
         super().__init__(name=name)
         assert compensation_option in ['only_vz', 'arbit_single']
@@ -38,7 +38,7 @@ class SingleQubitCompensation(hk.Module):
         shape = [] if self.compensation_option == 'only_vz' else [3]
 
         for node in graph.sorted_nodes:
-            if node not in coupler_subsystem:
+            if node not in idle_subsystem:
                 self.pre_comp_angles.append(
                     hk.get_parameter(parse_pre_comp_name(node),
                                      shape,

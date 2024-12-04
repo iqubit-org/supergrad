@@ -151,7 +151,8 @@ def create_state(ar_truncated_dim: np.ndarray, ar_ix: np.ndarray):
 
 
 def create_state_init(ar_truncated_dim: np.ndarray,
-                      ar_ix_max: Union[np.ndarray, List[List[int]]]):
+                      ar_ix_max: Union[np.ndarray, List[List[int]]],
+                      ar_ix_start: Optional[np.ndarray] = None):
     """Creates initial states in a N-Q system.
 
     Args:
@@ -159,23 +160,56 @@ def create_state_init(ar_truncated_dim: np.ndarray,
         ar_ix_max: [N,2] array as (qubit index, band maximum band index)
             to iterate all bands from 0 to maximum.
             [[0, 2], [1,2]] will create `|` 00> `|` 01> `|` 10> `|` 11> states.
+        ar_ix_start: [N,2] array as (qubit index, band start band index)
+            to iterate all bands from start to maximum.
 
     Returns:
         a list of initial states
     """
     ar_truncated_dim = np.asarray(ar_truncated_dim)
     list_max = np.ones(ar_truncated_dim.size, dtype=int)
+    list_start = np.zeros_like(list_max)
     for ix, x in ar_ix_max:
         list_max[ix] = x
-
-    ar_ix = np.stack(np.meshgrid(*[np.arange(x) for x in list_max],
-                                 indexing="ij"),
+    if ar_ix_start is not None:
+        for ix, x in ar_ix_start:
+            list_start[ix] = x
+    ar_ix = np.stack(np.meshgrid(
+        *[np.arange(st_x, x) for st_x, x in zip(list_start, list_max)],
+        indexing="ij"),
                      axis=-1).reshape((-1, ar_truncated_dim.size))
 
     list_state_init = [
         basis(list(ar_truncated_dim), list(band_ix)) for band_ix in ar_ix
     ]
     return np.array(list_state_init), ar_ix
+
+
+def create_state_init_with_idle(nodes: list,
+                                idle_subsystem: list,
+                                ar_truncated_dim: np.ndarray,
+                                idle_state: int,
+                                max_state: int = 2):
+    """Creates initial states in a N-Q system with idle subsystem.
+    The idle subsystem will be initialized to idle_state and other subsystems
+    will be swept from ground state to max_state.
+
+    Args:
+        nodes: list of nodes in the system (using intrinsic index `graph.sorted_nodes`)
+        idle_subsystem: list of idle subsystem
+        ar_truncated_dim: the number of bands in each subsystem
+        idle_state: the index of idle state
+        max_state: the maximum index of non-idle state
+    """
+    states_max = []
+    states_start = []
+    for i, node in enumerate(nodes):
+        if node in idle_subsystem:
+            states_max.append([i, 1 + idle_state])
+            states_start.append([i, idle_state])
+        else:
+            states_max.append([i, max_state])
+    return create_state_init(ar_truncated_dim, states_max, states_start)
 
 
 def compute_average_photon(power: float,
