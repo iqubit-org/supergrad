@@ -20,24 +20,30 @@ minimal_model = chain.subgraph(['fm0', 'fm1', 'res0'])
 spec = Spectrum(minimal_model, truncated_dim=2, share_params=True)
 et = spec.energy_tensor(spec.all_params)
 # %%
-evo = Evolve(minimal_model,
-             truncated_dim=2,
-             share_params=True,
-             idle_subsystem=chain.resonator_subsystem,
-             compensation_option='no_comp',
-             solver='ode_expm',
-             options={
-                 'astep': 50000,
-                 'trotter_order': 1,
-                 'progress_bar': False,
-                 'custom_vjp': True,
-             })
+evo = Evolve(
+    minimal_model,
+    truncated_dim=2,
+    share_params=True,
+    #  idle_subsystem=chain.resonator_subsystem,
+    compensation_option='no_comp',
+    solver='ode_expm',
+    options={
+        'astep': 5000,
+        'trotter_order': 1,
+        'progress_bar': False,
+        'custom_vjp': True,
+    })
 # %%
 # initialize the cavity to the coherent state
 psi_list, _ = create_state_init_with_idle(evo.graph.sorted_nodes,
-                                          evo.idle_subsystem,
+                                          chain.resonator_subsystem,
                                           evo.get_dims(evo.all_params),
                                           idle_state=1)
+# idle time evolution
+u_t = evo.product_basis(evo.all_params, psi_list)
+u_t.shape
+# %%
+
 # cavity interacting
 states, states_comp = evo.product_basis_trajectory(evo.all_params, t_list,
                                                    psi_list)
