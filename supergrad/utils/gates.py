@@ -7,8 +7,8 @@ from collections.abc import Iterable
 import numpy as np
 import jax.numpy as jnp
 import jax.scipy.linalg as jaxLA
-from jax._src.numpy.util import implements
 
+from supergrad.utils.docstring import implements
 from supergrad.utils.operators import identity, sigmax, sigmay, sigmaz
 from supergrad.utils.utility import tensor, fock_dm, permute
 

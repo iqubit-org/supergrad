@@ -17,8 +17,8 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jaxLA
-from jax._src.numpy.util import implements
 
+from supergrad.utils.docstring import implements
 from supergrad.utils.utility import qutrit_basis
 
 try:

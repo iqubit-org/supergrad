@@ -9,9 +9,9 @@ from jax._src.api import _jacfwd_unravel, _std_basis, _jvp
 from jax._src.api_util import argnums_partial
 from jax.flatten_util import ravel_pytree
 from jax.example_libraries import optimizers
-from jax._src.numpy.util import implements
 import pprint
 
+from supergrad.utils.docstring import implements
 from supergrad.utils.utility import convert_to_json_compatible
 
 
