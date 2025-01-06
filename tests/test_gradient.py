@@ -50,6 +50,7 @@ def test_simultaneous_x_gradient(trotter_order):
                                    grad)))
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize('trotter_order', trotter_order_list)
 def test_simultaneous_cnot_gradient(trotter_order):
     n_qubit = 2

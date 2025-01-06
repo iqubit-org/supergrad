@@ -9,9 +9,9 @@ from jax._src.api import _jacfwd_unravel, _std_basis, _jvp
 from jax._src.api_util import argnums_partial
 from jax.flatten_util import ravel_pytree
 from jax.example_libraries import optimizers
-from jax._src.numpy.util import implements
 import pprint
 
+from supergrad.utils.docstring import implements
 from supergrad.utils.format_conv import convert_to_json_compatible
 
 
@@ -175,12 +175,11 @@ def scipy_callback_wrapper(fun: Callable, unflatten: Callable):
     return unflatten_callback
 
 
-@implements(minimize,
-            lax_description="""
+@implements(
+    minimize, """
 New methods are implemented in arguments ``jac`` and ``hess``.
 If ``jac`` is 'jax', the gradient vector will be calculate by JAX.
-If ``hess`` is 'jax', the Hessian matrix will be calculate by JAX.""",
-            extra_params="""
+If ``hess`` is 'jax', the Hessian matrix will be calculate by JAX.
 jit : bool, optional
     True for enable just-in-time compile.
 fwd_ad : bool, optional
