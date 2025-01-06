@@ -1,0 +1,54 @@
+name: Github action CI test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  unit-test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+
+      - name: Prepare the python environment
+        run: |
+          python3 -m venv test_env
+          source test_env/bin/activate
+          pip install ".[benchmark]"
+
+      - name: Run unit tests
+        run: |
+          source test_env/bin/activate
+          pytest
+
+  lint-test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Prepare the lint environment
+        run: |
+          python3 -m venv lint_env
+          source lint_env/bin/activate
+          pip install flake8
+
+      - name: Lint code
+        run: |
+          source lint_env/bin/activate
+          flake8
