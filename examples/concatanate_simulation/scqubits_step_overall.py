@@ -30,7 +30,9 @@ from benchmark.utils.fidelity import fidelity
 # %%
 # create 1d chain model, apply simultaneous X gates
 # as a baseline approach to compute gradients using differentiable simulation
-n_qubit = 4
+n_qubit = 2
+truncated_dim = 2
+add_random = False
 # %%
 # we using the supergrad with LCAM method
 # def test_simultaneous_x_grad_lcam(benchmark, n_qubit):
@@ -40,13 +42,14 @@ evo = create_simultaneous_x(n_qubit=n_qubit,
                             trotter_order=2,
                             diag_ops=True,
                             minimal_approach=True,
-                            custom_vjp=True)
-spec = Spectrum(evo.graph, add_random=False)
+                            custom_vjp=True,
+                            add_random=add_random,
+                            drive_for_state_phase='phase')
+# unify the state phase based on the phase operator (as the same as the scqubits)
+spec = Spectrum(evo.graph, truncated_dim=2, add_random=add_random)
 # energy_tensor = spec.energy_tensor(spec.all_params)
 # %%
 # Hands-on create chain model by scqubits
-cutoff = 120
-truncated_dim = 5
 params = jax.tree.map(lambda x: np.array(x), evo.all_params)
 
 
@@ -55,7 +58,7 @@ def create_fluxonium(label, params):
                          EJ=params[label]['ej'],
                          EL=params[label]['el'],
                          flux=params[label]['phiext'] / 2 / np.pi,
-                         cutoff=cutoff,
+                         cutoff=120,
                          truncated_dim=truncated_dim,
                          evals_method='evals_jax_dense',
                          id_str=label)
@@ -92,78 +95,75 @@ for i in range(n_qubit - 1):
                             hilbertspace=hilbertspace,
                             params=params)
 
-hilbertspace.eigenvals()
+hilbertspace.eigenvals(2**n_qubit)
 # %%
 energy_tensor = spec.energy_tensor(spec.all_params)
 jnp.sort(energy_tensor.flatten())
 # %%
-# create the drive terms
+ham_static, hamiltonian_component_and_pulseshape, t_span = evo.construct_hamiltonian_and_pulseshape(
+    evo.all_params)
+ham_static_qutip = to_qutip_operator(ham_static)
+operator_function_pair_list = to_qutip_operator_function_pair(
+    hamiltonian_component_and_pulseshape)
+u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
 # %%
-# {
-#     'capacitive_coupling_fm0_fm1': {
-#         'strength': Array(0.12566371, dtype=float64, weak_type=True)
-#     },
-#     'capacitive_coupling_fm1_fm2': {
-#         'strength': Array(0.12566371, dtype=float64, weak_type=True)
-#     },
-#     'capacitive_coupling_fm2_fm3': {
-#         'strength': Array(0.12566371, dtype=float64, weak_type=True)
-#     },
-#     'fm0': {
-#         'ec': Array(6.28318531, dtype=float64, weak_type=True),
-#         'ej': Array(25.13274123, dtype=float64, weak_type=True),
-#         'el': Array(5.65486678, dtype=float64, weak_type=True),
-#         'phiext': Array(3.14159265, dtype=float64, weak_type=True)
-#     },
-#     'fm0_pulsesq_cos': {
-#         'amp': Array(0.05651893, dtype=float64),
-#         'length': Array(50., dtype=float64, weak_type=True),
-#         'omega_d': Array(3.05289284, dtype=float64),
-#         'phase': Array(0., dtype=float64, weak_type=True)
-#     },
-#     'fm1': {
-#         'ec': Array(6.28318531, dtype=float64, weak_type=True),
-#         'ej': Array(25.13274123, dtype=float64, weak_type=True),
-#         'el': Array(6.28318531, dtype=float64, weak_type=True),
-#         'phiext': Array(3.14159265, dtype=float64, weak_type=True)
-#     },
-#     'fm1_pulsesq_cos': {
-#         'amp': Array(0.05926816, dtype=float64),
-#         'length': Array(50., dtype=float64, weak_type=True),
-#         'omega_d': Array(3.71523252, dtype=float64),
-#         'phase': Array(0., dtype=float64, weak_type=True)
-#     },
-#     'fm2': {
-#         'ec': Array(6.28318531, dtype=float64, weak_type=True),
-#         'ej': Array(25.13274123, dtype=float64, weak_type=True),
-#         'el': Array(6.91150384, dtype=float64, weak_type=True),
-#         'phiext': Array(3.14159265, dtype=float64, weak_type=True)
-#     },
-#     'fm2_pulsesq_cos': {
-#         'amp': Array(0.06122666, dtype=float64),
-#         'length': Array(50., dtype=float64, weak_type=True),
-#         'omega_d': Array(4.21605355, dtype=float64),
-#         'phase': Array(0., dtype=float64, weak_type=True)
-#     },
-#     'fm3': {
-#         'ec': Array(6.28318531, dtype=float64, weak_type=True),
-#         'ej': Array(25.13274123, dtype=float64, weak_type=True),
-#         'el': Array(5.65486678, dtype=float64, weak_type=True),
-#         'phiext': Array(3.14159265, dtype=float64, weak_type=True)
-#     },
-#     'fm3_pulsesq_cos': {
-#         'amp': Array(0.05729331, dtype=float64),
-#         'length': Array(50., dtype=float64, weak_type=True),
-#         'omega_d': Array(3.36019615, dtype=float64),
-#         'phase': Array(0., dtype=float64, weak_type=True)
-#     },
-#     'inductive_coupling_fm0_fm1': {
-#         'strength': Array(-0.01256637, dtype=float64, weak_type=True)
-#     },
-#     'inductive_coupling_fm1_fm2': {
-#         'strength': Array(-0.01256637, dtype=float64, weak_type=True)
-#     },
-#     'inductive_coupling_fm2_fm3': {
-#         'strength': Array(-0.01256637, dtype=float64, weak_type=True)
-#     }
-# }
+# create the drive terms
+ham_static_scq = hilbertspace.hamiltonian()
+hilbertspace.generate_lookup()
+drive_opt = [[
+    scq.identity_wrap(fm.phi_operator(), fm, hilbertspace.subsystem_list),
+    opt_pulse[1]
+] for fm, opt_pulse in zip(fm_list, operator_function_pair_list)]
+
+dressed_drive_opt = [[
+    hilbertspace.op_in_dressed_eigenbasis(fm.phi_operator), opt_pulse[1]
+] for fm, opt_pulse in zip(fm_list, operator_function_pair_list)]
+np.allclose(ham_static_scq.full(), ham_static.full())
+# %%
+# time evolution by supergrad
+u_supergrad = evo.product_basis(evo.all_params)
+# fid, res_unitary = compute_fidelity_with_1q_rotation_axis(
+#     u_ref, u_supergrad, compensation_option='only_vz')
+# fid
+# %%
+# time evolution by qutip using the scqubits Hamiltonian
+u0 = qt.qeye(list(evo.get_dims(evo.all_params)))
+# config solver option
+options = qt.Options(nsteps=1e6, atol=1e-8, rtol=1e-8)
+
+output = qt.sesolve([ham_static_scq] + drive_opt,
+                    u0, [0.0, t_span],
+                    options=options)
+# output = qt.sesolve([qt.qdiags(ham_static_scq.eigenenergies())] +
+#                     dressed_drive_opt,
+#                     qt.qeye([[4]]), [0.0, t_span],
+#                     options=options)
+# output = qt.sesolve([ham_static_qutip] + operator_function_pair_list,
+#                     u0, [0.0, t_span],
+#                     options=options)
+u_scq = output.states[-1].full()
+# fid, res_unitary = compute_fidelity_with_1q_rotation_axis(
+#     u_ref, u_scq, compensation_option='only_vz')
+fidelity(u_scq, u_supergrad)
+# %%
+# using the qiskit dynamics API
+static_hamiltonian = ham_static_scq.full()
+drive_hamiltonian, drive_signal = to_qiskit_drive_hamiltonian(
+    hamiltonian_component_and_pulseshape)
+# Evolving by qiskit dynamics
+solver = Solver(static_hamiltonian,
+                drive_hamiltonian,
+                rotating_frame=static_hamiltonian,
+                evaluation_mode='dense')
+u0 = np.eye(np.prod(evo.dims), dtype=complex)
+
+results = solver.solve(
+    t_span=[0, t_span],
+    y0=u0,
+    signals=drive_signal,
+    atol=1e-8,
+    rtol=1e-8,
+)
+solver.model.rotating_frame.state_out_of_frame(t_span, results.y[-1])
+
+# %%

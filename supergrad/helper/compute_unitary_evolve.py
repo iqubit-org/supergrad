@@ -80,9 +80,10 @@ class Evolve(Helper):
             add_random=self.add_random,
             share_params=self.share_params,
             unify_coupling=self.unify_coupling,
-            truncated_dim=self.truncated_dim)
+            truncated_dim=self.truncated_dim,
+            **self.kwargs)
         self.hamiltonian_component_and_pulseshape, self.pulse_endtime = self.graph.convert_graph_to_pulse_lst(
-            self.hilbertspace, modulate_wave=True)
+            self.hilbertspace, modulate_wave=True, **self.kwargs)
         if self.compensation_option in ['only_vz', 'arbit_single']:
             sqc = SingleQubitCompensation(self.graph, self.compensation_option,
                                           self.coupler_subsystem)
