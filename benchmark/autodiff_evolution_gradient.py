@@ -25,6 +25,7 @@ sys.path.append('/'.join(dir_path.split('/')[:-2]))
 from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
 
 from benchmark.utils.create_simultaneous_model import create_simultaneous_x
+from benchmark.utils.create_multipath_chain_scqubits import create_qubit_chain
 from benchmark.utils.fidelity import fidelity
 # %%
 # create 1d chain model, apply simultaneous X gates
@@ -44,13 +45,44 @@ evo = create_simultaneous_x(n_qubit=n_qubit,
 u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
 # u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
 
+
 @jax.jit
 @jax.value_and_grad
 def infidelity(params):
     return 1 - distributed_state_fidelity(u_ref, evo.product_basis(params))
 
 
-infidelity(evo.all_params)
+# infidelity(evo.all_params)
+# %%
+# using the qiskit dynamics solver
+def qiskit_pulse_obj(params):
+    ham_static, hamiltonian_component_and_pulseshape, t_span = evo.construct_hamiltonian_and_pulseshape(
+        params)
+    static_hamiltonian = jax.lax.stop_gradient(
+        to_qiskit_static_hamiltonian(ham_static))
+    drive_hamiltonian, drive_signal = to_qiskit_drive_hamiltonian(
+        hamiltonian_component_and_pulseshape)
+    # Evolving by qiskit dynamics in rotating frame
+    solver = Solver(static_hamiltonian,
+                    jax.lax.stop_gradient(drive_hamiltonian),
+                    rotating_frame=static_hamiltonian,
+                    array_library="jax")
+    u0 = np.eye(np.prod(evo.get_dims(evo.all_params)), dtype=complex)
+
+    results = solver.solve(
+        t_span=[0, t_span],
+        y0=u0,
+        signals=drive_signal,
+        method='jax_odeint',
+        atol=1e-8,
+        rtol=1e-8,
+    )
+    u_qiskit = solver.model.rotating_frame.state_out_of_frame(
+        t_span, results.y[-1])
+    return 1 - distributed_state_fidelity(u_ref, u_qiskit)
+
+
+jax.value_and_grad(qiskit_pulse_obj)(evo.all_params)
 # %%
 # output of the gradients computation
 # (Array(0.69959341, dtype=float64), {
@@ -122,12 +154,3 @@ infidelity(evo.all_params)
 #     }
 # })
 # %%
-@partial(trace_max_memory_usage, pid=os.getpid())
-@jax.block_until_ready
-def vg_infidelity():
-    return infidelity(evo.all_params)
-
-# save the gradient
-jnp.save(f'{dir_path}/res_data/grad_lcam_simultaneous_x_{n_qubit}.npy',
-            vg_infidelity[0])
-assert len(vg_infidelity[0]) == 2

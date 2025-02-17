@@ -8,17 +8,11 @@ import jax.numpy as jnp
 from jax.test_util import check_grads
 from jax.flatten_util import ravel_pytree
 
-from qiskit_dynamics import Solver
-import qutip as qt
 import supergrad
 from supergrad.helper import Evolve
 from supergrad.utils import basis
 from supergrad.utils.fidelity import compute_fidelity_with_1q_rotation_axis
 from supergrad.utils.memory_profiling import trace_max_memory_usage
-from supergrad.utils.qiskit_interface import (to_qiskit_static_hamiltonian,
-                                              to_qiskit_drive_hamiltonian)
-from supergrad.utils.qutip_interface import (to_qutip_operator,
-                                             to_qutip_operator_function_pair)
 from supergrad.utils.sharding import distributed_state_fidelity
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -63,8 +57,8 @@ params, unflatten = ravel_pytree(evo.all_params)
 
 # sweep over all parameters
 # %%
-@jax.vmap
-def compute_finite_diff_at_coordinate(index, eps):
+@partial(jax.vmap, in_axes=(0, None))
+def compute_finite_diff_at_coordinate(index, eps=1e-4):
     params_var = params.at[index].add(eps)
     return (infidelity(unflatten(params_var)) - center_val) / eps
 
@@ -72,18 +66,15 @@ def compute_finite_diff_at_coordinate(index, eps):
 grad_numerical = compute_finite_diff_at_coordinate(jnp.arange(len(params)), eps)
 grad_numerical = unflatten(grad_numerical)
 # %%
-# index = 0
-grad_numerical = []
-for index in range(len(params)):
-    # using forward diff
-    params_var = params.at[index].add(eps)
-    grad_numerical.append(
-        (infidelity(unflatten(params_var)) - center_val) / eps)
-    print(f'grad_numerical {index}: {grad_numerical[-1]}')
-# unflatten the numerical gradients
-grad_numerical = unflatten(jnp.array(grad_numerical))
+# using the JAX auto-diff transformation
+grad_ad = jax.value_and_grad(infidelity)(evo.all_params)
+# %%
+# compare the gradients
+diff_grad = jax.tree.map(lambda x, y: jnp.linalg.norm(x - y), grad_ad[1],
+                         grad_numerical)
 # %%
 # using centre diff
+index = 0
 params_add = params.at[index].add(eps / 2)
 params_sub = params.at[index].add(-eps / 2)
 grad_numerical = (infidelity(unflatten(params_add)) -
