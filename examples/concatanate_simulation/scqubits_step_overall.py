@@ -148,14 +148,17 @@ fidelity(u_scq, u_supergrad)
 # %%
 # using the qiskit dynamics API
 static_hamiltonian = ham_static_scq.full()
-drive_hamiltonian, drive_signal = to_qiskit_drive_hamiltonian(
+drive_hamiltonian = [
+    scq.identity_wrap(fm.phi_operator(), fm,
+                      hilbertspace.subsystem_list).full() for fm in fm_list
+]
+_, drive_signal = to_qiskit_drive_hamiltonian(
     hamiltonian_component_and_pulseshape)
-# Evolving by qiskit dynamics
+# Evolving by qiskit dynamics in rotating frame
 solver = Solver(static_hamiltonian,
                 drive_hamiltonian,
-                rotating_frame=static_hamiltonian,
-                evaluation_mode='dense')
-u0 = np.eye(np.prod(evo.dims), dtype=complex)
+                rotating_frame=static_hamiltonian)
+u0 = np.eye(np.prod(evo.get_dims(evo.all_params)), dtype=complex)
 
 results = solver.solve(
     t_span=[0, t_span],
@@ -164,6 +167,19 @@ results = solver.solve(
     atol=1e-8,
     rtol=1e-8,
 )
-solver.model.rotating_frame.state_out_of_frame(t_span, results.y[-1])
+u_qiskit = solver.model.rotating_frame.state_out_of_frame(t_span, results.y[-1])
+fidelity(u_qiskit, u_supergrad)
+# %%
+# Evolving by qiskit dynamics
+solver = Solver(static_hamiltonian, drive_hamiltonian)
+u0 = np.eye(np.prod(evo.get_dims(evo.all_params)), dtype=complex)
 
+results = solver.solve(
+    t_span=[0, t_span],
+    y0=u0,
+    signals=drive_signal,
+    atol=1e-8,
+    rtol=1e-8,
+)
+fidelity(u_qiskit, u_supergrad)
 # %%
