@@ -129,5 +129,6 @@ results = solver.solve(
     atol=1e-8,
     rtol=1e-8,
 )
+u_qiskit = results.y[-1]
 fidelity(u_qiskit, u_supergrad)
 # %%

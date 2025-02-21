@@ -73,7 +73,7 @@ grad_ad = jax.value_and_grad(infidelity)(evo.all_params)
 diff_grad = jax.tree.map(lambda x, y: jnp.linalg.norm(x - y), grad_ad[1],
                          grad_numerical)
 # %%
-# using centre diff
+# using central difference
 index = 0
 params_add = params.at[index].add(eps / 2)
 params_sub = params.at[index].add(-eps / 2)

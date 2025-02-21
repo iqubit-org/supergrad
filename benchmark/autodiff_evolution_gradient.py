@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 import jax
 import jax.numpy as jnp
+import haiku as hk
 
 from qiskit_dynamics import Solver
 import qutip as qt
@@ -15,8 +16,6 @@ from supergrad.utils.fidelity import compute_fidelity_with_1q_rotation_axis
 from supergrad.utils.memory_profiling import trace_max_memory_usage
 from supergrad.utils.qiskit_interface import (to_qiskit_static_hamiltonian,
                                               to_qiskit_drive_hamiltonian)
-from supergrad.utils.qutip_interface import (to_qutip_operator,
-                                             to_qutip_operator_function_pair)
 from supergrad.utils.sharding import distributed_state_fidelity
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -25,7 +24,6 @@ sys.path.append('/'.join(dir_path.split('/')[:-2]))
 from supergrad.scgraph.graph_mpc_fluxonium_1d import MPCFluxonium1D
 
 from benchmark.utils.create_simultaneous_model import create_simultaneous_x
-from benchmark.utils.create_multipath_chain_scqubits import create_qubit_chain
 from benchmark.utils.fidelity import fidelity
 # %%
 # create 1d chain model, apply simultaneous X gates
@@ -49,15 +47,23 @@ u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
 @jax.jit
 @jax.value_and_grad
 def infidelity(params):
+    params = hk.data_structures.merge(evo.all_params, params)
     return 1 - distributed_state_fidelity(u_ref, evo.product_basis(params))
 
 
-# infidelity(evo.all_params)
+# compute the gradients by the supergrad
+v_supergrad, g_supergrad = infidelity(evo.pulse_params)
+
+
 # %%
 # using the qiskit dynamics solver
+# @jax.jit
+@jax.value_and_grad
 def qiskit_pulse_obj(params):
+    params = hk.data_structures.merge(evo.all_params, params)
     ham_static, hamiltonian_component_and_pulseshape, t_span = evo.construct_hamiltonian_and_pulseshape(
         params)
+    # stop the gradient computation for the static hamiltonian
     static_hamiltonian = jax.lax.stop_gradient(
         to_qiskit_static_hamiltonian(ham_static))
     drive_hamiltonian, drive_signal = to_qiskit_drive_hamiltonian(
@@ -82,75 +88,9 @@ def qiskit_pulse_obj(params):
     return 1 - distributed_state_fidelity(u_ref, u_qiskit)
 
 
-jax.value_and_grad(qiskit_pulse_obj)(evo.all_params)
+v_qiskit, g_qiskit = qiskit_pulse_obj(evo.pulse_params)
 # %%
-# output of the gradients computation
-# (Array(0.69959341, dtype=float64), {
-#     'capacitive_coupling_fm0_fm1': {
-#         'strength': Array(-0.00383161, dtype=float64, weak_type=True)
-#     },
-#     'capacitive_coupling_fm1_fm2': {
-#         'strength': Array(-0.00914214, dtype=float64, weak_type=True)
-#     },
-#     'capacitive_coupling_fm2_fm3': {
-#         'strength': Array(-0.00437054, dtype=float64, weak_type=True)
-#     },
-#     'fm0': {
-#         'ec': Array(-0.15246967, dtype=float64, weak_type=True),
-#         'ej': Array(0.04749101, dtype=float64, weak_type=True),
-#         'el': Array(-0.13651917, dtype=float64, weak_type=True),
-#         'phiext': Array(0.0001105, dtype=float64, weak_type=True)
-#     },
-#     'fm0_pulsesq_cos': {
-#         'amp': Array(-0.07253371, dtype=float64),
-#         'length': Array(0.17250946, dtype=float64),
-#         'omega_d': Array(-11.11458648, dtype=float64),
-#         'phase': Array(-0.4521345, dtype=float64)
-#     },
-#     'fm1': {
-#         'ec': Array(0.09756752, dtype=float64, weak_type=True),
-#         'ej': Array(-0.03089809, dtype=float64, weak_type=True),
-#         'el': Array(0.0856037, dtype=float64, weak_type=True),
-#         'phiext': Array(2.87246361e-06, dtype=float64, weak_type=True)
-#     },
-#     'fm1_pulsesq_cos': {
-#         'amp': Array(-0.22041418, dtype=float64),
-#         'length': Array(0.17326897, dtype=float64),
-#         'omega_d': Array(2.97855551, dtype=float64),
-#         'phase': Array(0.12220165, dtype=float64)
-#     },
-#     'fm2': {
-#         'ec': Array(0.56080074, dtype=float64, weak_type=True),
-#         'ej': Array(-0.18273928, dtype=float64, weak_type=True),
-#         'el': Array(0.48153142, dtype=float64, weak_type=True),
-#         'phiext': Array(7.93590519e-06, dtype=float64, weak_type=True)
-#     },
-#     'fm2_pulsesq_cos': {
-#         'amp': Array(-0.19067468, dtype=float64),
-#         'length': Array(0.17291987, dtype=float64),
-#         'omega_d': Array(1.90321611, dtype=float64),
-#         'phase': Array(0.09944897, dtype=float64)
-#     },
-#     'fm3': {
-#         'ec': Array(-0.09918134, dtype=float64, weak_type=True),
-#         'ej': Array(0.03072069, dtype=float64, weak_type=True),
-#         'el': Array(-0.0905288, dtype=float64, weak_type=True),
-#         'phiext': Array(0.0001092, dtype=float64, weak_type=True)
-#     },
-#     'fm3_pulsesq_cos': {
-#         'amp': Array(-0.04134376, dtype=float64),
-#         'length': Array(0.17433787, dtype=float64),
-#         'omega_d': Array(14.21093452, dtype=float64),
-#         'phase': Array(0.56368919, dtype=float64)
-#     },
-#     'inductive_coupling_fm0_fm1': {
-#         'strength': Array(-0.85234604, dtype=float64, weak_type=True)
-#     },
-#     'inductive_coupling_fm1_fm2': {
-#         'strength': Array(-1.5685977, dtype=float64, weak_type=True)
-#     },
-#     'inductive_coupling_fm2_fm3': {
-#         'strength': Array(-0.86631625, dtype=float64, weak_type=True)
-#     }
-# })
+# check the results of gradients
+diff_grad = jax.tree.map(lambda x, y: jnp.linalg.norm(x - y), g_supergrad, g_qiskit)
+
 # %%
