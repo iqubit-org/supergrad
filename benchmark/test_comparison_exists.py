@@ -32,7 +32,7 @@ from benchmark.utils.create_multipath_chain_scqubits import create_qubit_chain
 from benchmark.utils.fidelity import fidelity
 
 # sweep configurations
-nqubit_list = range(3, 4)
+nqubit_list = range(8, 9)
 # global configurations
 astep = 5000
 trotter_order = 2
@@ -300,7 +300,7 @@ def test_overall_forward_simulation_scqubits_qutip(benchmark, n_qubit):
     assert v_infidelity[0] <= 1
 
 
-@pytest.mark.benchmark_grad
+@pytest.mark.benchmark_gpu
 @pytest.mark.parametrize('n_qubit', nqubit_list)
 def test_time_evolution_differential_simulation_qiskit(benchmark,
                                                        n_qubit,
@@ -324,14 +324,23 @@ def test_time_evolution_differential_simulation_qiskit(benchmark,
     def infidelity(params):
         params = hk.data_structures.merge(evo.all_params, params)
         u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
-        # using Hamiltonian that created by SuperGrad
-        ham_static, hamiltonian_component_and_pulseshape, t_span = evo.construct_hamiltonian_and_pulseshape(
-            params)
-        # stop the gradient computation for the static hamiltonian
-        static_hamiltonian = jax.lax.stop_gradient(
-            to_qiskit_static_hamiltonian(ham_static))
-        drive_hamiltonian, drive_signal = to_qiskit_drive_hamiltonian(
+        # using Hamiltonian that created by SCQubits
+        _, hamiltonian_component_and_pulseshape, t_span = evo.construct_hamiltonian_and_pulseshape(
+            evo.all_params)
+        _, drive_signal = to_qiskit_drive_hamiltonian(
             hamiltonian_component_and_pulseshape)
+        params_no_grad = jax.tree.map(lambda x: np.array(x), evo.all_params)
+        hilbertspace, fm_list = create_qubit_chain(params_no_grad, n_qubit, 2)
+        # time evolution by qutip using the scqubits Hamiltonian
+        ham_static_scq = hilbertspace.hamiltonian()
+        # create the drive terms
+        # using the qiskit dynamics solver
+        static_hamiltonian = ham_static_scq.full()
+        drive_hamiltonian = [
+            scq.identity_wrap(fm.phi_operator(), fm,
+                              hilbertspace.subsystem_list).full()
+            for fm in fm_list
+        ]
         if rotating_frame:
             # Evolving by qiskit dynamics in rotating frame
             solver = Solver(static_hamiltonian,
