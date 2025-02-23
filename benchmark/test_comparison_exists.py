@@ -32,7 +32,7 @@ from benchmark.utils.create_multipath_chain_scqubits import create_qubit_chain
 from benchmark.utils.fidelity import fidelity
 
 # sweep configurations
-nqubit_list = range(8, 9)
+nqubit_list = range(6, 7)
 # global configurations
 astep = 5000
 trotter_order = 2
@@ -64,9 +64,12 @@ def forward_simulation_scqubits_qiskit(params, n_qubit, drive_signal, t_span,
         # Evolving by qiskit dynamics in rotating frame
         solver = Solver(static_hamiltonian,
                         drive_hamiltonian,
-                        rotating_frame=static_hamiltonian)
+                        rotating_frame=static_hamiltonian,
+                        array_library="jax")
     else:
-        solver = Solver(static_hamiltonian, drive_hamiltonian)
+        solver = Solver(static_hamiltonian,
+                        drive_hamiltonian,
+                        array_library="jax")
     # initial states array
     u0 = np.eye(u_ref.shape[0], dtype=complex)
 
@@ -74,6 +77,7 @@ def forward_simulation_scqubits_qiskit(params, n_qubit, drive_signal, t_span,
         t_span=[0, t_span],
         y0=u0,
         signals=drive_signal,
+        method='jax_odeint',
         atol=1e-8,
         rtol=1e-8,
     )
@@ -227,7 +231,7 @@ def test_overall_differential_simulation_supergrad(benchmark, n_qubit):
 @pytest.mark.parametrize('n_qubit', nqubit_list)
 def test_overall_forward_simulation_scqubits_qiskit(benchmark,
                                                     n_qubit,
-                                                    rotating_frame=True):
+                                                    rotating_frame=False):
     """Benchmark 1
     Benchmark overall simulation (SCQubit + qiskit dynamics) between toolchain
     and supergrad.
@@ -300,11 +304,11 @@ def test_overall_forward_simulation_scqubits_qutip(benchmark, n_qubit):
     assert v_infidelity[0] <= 1
 
 
-@pytest.mark.benchmark_gpu
+@pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
 def test_time_evolution_differential_simulation_qiskit(benchmark,
                                                        n_qubit,
-                                                       rotating_frame=True):
+                                                       rotating_frame=False):
     """Benchmark 2
     Benchmark differential simulation of time evolution between qiskit dynamics
     and supergrad.
@@ -413,7 +417,6 @@ def test_overall_differential_simulation_fdm_supergrad(benchmark, n_qubit):
     @benchmark
     @partial(trace_max_memory_usage, pid=os.getpid())
     @jax.block_until_ready
-    @jax.jit
     def vg_infidelity():
         center_val = infidelity(evo.all_params)
         # Set a step size for finite differences calculations
@@ -461,7 +464,7 @@ def test_overall_differential_simulation_fdm_scqubits_qiskit(
     u_ref = jax.device_put(u_ref, jax.devices('cpu')[0])
     params, unflatten = ravel_pytree(evo.all_params)
 
-    def infidelity(params, rotating_frame=True):
+    def infidelity(params, rotating_frame=False):
         _, hamiltonian_component_and_pulseshape, t_span = evo.construct_hamiltonian_and_pulseshape(
             params)
 
