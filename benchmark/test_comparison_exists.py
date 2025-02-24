@@ -155,7 +155,7 @@ def test_overall_forward_simulation_supergrad(benchmark, n_qubit):
 
 @pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
-def test_time_evolution_differential_simulation_supergrad(benchmark, n_qubit):
+def test_time_evolution_differentiable_simulation_supergrad(benchmark, n_qubit):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=astep,
                                 trotter_order=trotter_order,
@@ -164,7 +164,7 @@ def test_time_evolution_differential_simulation_supergrad(benchmark, n_qubit):
                                 custom_vjp=custom_vjp,
                                 add_random=add_random,
                                 drive_for_state_phase=drive_for_state_phase)
-    tag = f'time_evolution_differential_simulation_supergrad_{n_qubit}_qubits'
+    tag = f'time_evolution_differentiable_simulation_supergrad_{n_qubit}_qubits'
     benchmark.group = tag
 
     # benchmark
@@ -193,7 +193,7 @@ def test_time_evolution_differential_simulation_supergrad(benchmark, n_qubit):
 
 @pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
-def test_overall_differential_simulation_supergrad(benchmark, n_qubit):
+def test_overall_differentiable_simulation_supergrad(benchmark, n_qubit):
     evo = create_simultaneous_x(n_qubit=n_qubit,
                                 astep=astep,
                                 trotter_order=trotter_order,
@@ -202,7 +202,7 @@ def test_overall_differential_simulation_supergrad(benchmark, n_qubit):
                                 custom_vjp=custom_vjp,
                                 add_random=add_random,
                                 drive_for_state_phase=drive_for_state_phase)
-    tag = f'overall_differential_simulation_supergrad_{n_qubit}_qubits'
+    tag = f'overall_differentiable_simulation_supergrad_{n_qubit}_qubits'
     benchmark.group = tag
 
     # benchmark
@@ -306,9 +306,8 @@ def test_overall_forward_simulation_scqubits_qutip(benchmark, n_qubit):
 
 @pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
-def test_time_evolution_differential_simulation_qiskit(benchmark,
-                                                       n_qubit,
-                                                       rotating_frame=False):
+def test_time_evolution_differentiable_simulation_qiskit(
+        benchmark, n_qubit, rotating_frame=False):
     """Benchmark 2
     Benchmark differential simulation of time evolution between qiskit dynamics
     and supergrad.
@@ -321,7 +320,7 @@ def test_time_evolution_differential_simulation_qiskit(benchmark,
                                 custom_vjp=custom_vjp,
                                 add_random=add_random,
                                 drive_for_state_phase=drive_for_state_phase)
-    tag = f'time_evolution_differential_simulation_qiskit_{n_qubit}_qubits'
+    tag = f'time_evolution_differentiable_simulation_qiskit_{n_qubit}_qubits'
     benchmark.group = tag
 
     @jax.value_and_grad
@@ -380,6 +379,9 @@ def test_time_evolution_differential_simulation_qiskit(benchmark,
         return infidelity(evo.pulse_params)
 
     benchmark.extra_info.update({'memory': vg_infidelity[1]})
+    benchmark.extra_info.update(
+        {'num_params': len(ravel_pytree(evo.pulse_params)[0])})
+
     # save the gradient
     jnp.save(f'{dir_path}/res_data/{tag}.npy', vg_infidelity[0])
     assert len(vg_infidelity[0]) == 2
@@ -387,7 +389,7 @@ def test_time_evolution_differential_simulation_qiskit(benchmark,
 
 @pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
-def test_overall_differential_simulation_fdm_supergrad(benchmark, n_qubit):
+def test_overall_differentiable_simulation_fdm_supergrad(benchmark, n_qubit):
     """Benchmark 3
     Benchmark gradient computation between supergrad and finite different method(FDM).
     Every forward simulation is performed using supergrad, compute the gradients
@@ -401,7 +403,7 @@ def test_overall_differential_simulation_fdm_supergrad(benchmark, n_qubit):
                                 custom_vjp=custom_vjp,
                                 add_random=add_random,
                                 drive_for_state_phase=drive_for_state_phase)
-    tag = f'overall_differential_simulation_fdm_supergrad_{n_qubit}_qubits'
+    tag = f'overall_differentiable_simulation_fdm_supergrad_{n_qubit}_qubits'
     benchmark.group = tag
 
     # benchmark
@@ -442,7 +444,7 @@ def test_overall_differential_simulation_fdm_supergrad(benchmark, n_qubit):
 
 @pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
-def test_overall_differential_simulation_fdm_scqubits_qiskit(
+def test_overall_differentiable_simulation_fdm_scqubits_qiskit(
         benchmark, n_qubit):
     """Benchmark 3
     Benchmark gradient computation between supergrad and finite different method(FDM).
@@ -456,7 +458,7 @@ def test_overall_differential_simulation_fdm_scqubits_qiskit(
                                 custom_vjp=custom_vjp,
                                 add_random=add_random,
                                 drive_for_state_phase=drive_for_state_phase)
-    tag = f'overall_differential_simulation_fdm_scqubits_qiskit_{n_qubit}_qubits'
+    tag = f'overall_differentiable_simulation_fdm_scqubits_qiskit_{n_qubit}_qubits'
     benchmark.group = tag
 
     # benchmark
