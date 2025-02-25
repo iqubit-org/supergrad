@@ -1,6 +1,7 @@
 # %%
 import os
 import sys
+import gc
 from functools import partial
 import numpy as np
 import jax
@@ -423,17 +424,30 @@ def test_overall_differentiable_simulation_fdm_supergrad(benchmark, n_qubit):
         center_val = infidelity(evo.all_params)
         # Set a step size for finite differences calculations
         eps = 1e-4
-
         # sweep over all parameters
-        @partial(jax.vmap, in_axes=(0, None))
-        def compute_finite_diff_at_coordinate(index, eps):
+        grad_numerical = []
+        for index in range(len(params)):
+            # using forward diff
             params_var = params.at[index].add(eps)
-            return (infidelity(unflatten(params_var)) - center_val) / eps
-
-        grad_numerical = compute_finite_diff_at_coordinate(
-            jnp.arange(len(params)), eps)
-        grad_numerical = unflatten(grad_numerical)
+            grad_numerical.append(
+                (infidelity(unflatten(params_var)) - center_val) / eps)
+            print(f'grad_numerical {index}: {grad_numerical[-1]}')
+            gc.collect()
+        # unflatten the numerical gradients
+        grad_numerical = unflatten(jnp.array(grad_numerical))
         return center_val, grad_numerical
+
+        # # sweep over all parameters
+        # using jax.vmap to compute the gradients
+        # @partial(jax.vmap, in_axes=(0, None))
+        # def compute_finite_diff_at_coordinate(index, eps):
+        #     params_var = params.at[index].add(eps)
+        #     return (infidelity(unflatten(params_var)) - center_val) / eps
+
+        # grad_numerical = compute_finite_diff_at_coordinate(
+        #     jnp.arange(len(params)), eps)
+        # grad_numerical = unflatten(grad_numerical)
+        # return center_val, grad_numerical
 
     benchmark.extra_info.update({'memory': vg_infidelity[1]})
     benchmark.extra_info.update({'num_params': len(params)})
@@ -492,6 +506,7 @@ def test_overall_differentiable_simulation_fdm_scqubits_qiskit(
             grad_numerical.append(
                 (infidelity(unflatten(params_var)) - center_val) / eps)
             print(f'grad_numerical {index}: {grad_numerical[-1]}')
+            gc.collect()
         # unflatten the numerical gradients
         grad_numerical = unflatten(jnp.array(grad_numerical))
         return center_val, grad_numerical
