@@ -232,7 +232,7 @@ def test_overall_differentiable_simulation_supergrad(benchmark, n_qubit):
 @pytest.mark.parametrize('n_qubit', nqubit_list)
 def test_overall_forward_simulation_scqubits_qiskit(benchmark,
                                                     n_qubit,
-                                                    rotating_frame=False):
+                                                    rotating_frame=True):
     """Benchmark 1
     Benchmark overall simulation (SCQubit + qiskit dynamics) between toolchain
     and supergrad.
@@ -257,6 +257,7 @@ def test_overall_forward_simulation_scqubits_qiskit(benchmark,
     # benchmark
     @benchmark
     @partial(trace_max_memory_usage, pid=os.getpid())
+    @jax.block_until_ready
     def v_infidelity():
         return forward_simulation_scqubits_qiskit(params, n_qubit, drive_signal,
                                                   t_span, rotating_frame)
@@ -308,7 +309,7 @@ def test_overall_forward_simulation_scqubits_qutip(benchmark, n_qubit):
 @pytest.mark.benchmark_grad
 @pytest.mark.parametrize('n_qubit', nqubit_list)
 def test_time_evolution_differentiable_simulation_qiskit(
-        benchmark, n_qubit, rotating_frame=False):
+        benchmark, n_qubit, rotating_frame=True):
     """Benchmark 2
     Benchmark differential simulation of time evolution between qiskit dynamics
     and supergrad.
@@ -330,7 +331,7 @@ def test_time_evolution_differentiable_simulation_qiskit(
         u_ref = supergrad.tensor(*[np.array([[0, 1], [1, 0]])] * n_qubit)
         # using Hamiltonian that created by SCQubits
         _, hamiltonian_component_and_pulseshape, t_span = evo.construct_hamiltonian_and_pulseshape(
-            evo.all_params)
+            params)
         _, drive_signal = to_qiskit_drive_hamiltonian(
             hamiltonian_component_and_pulseshape)
         params_no_grad = jax.tree.map(lambda x: np.array(x), evo.all_params)
@@ -348,12 +349,12 @@ def test_time_evolution_differentiable_simulation_qiskit(
         if rotating_frame:
             # Evolving by qiskit dynamics in rotating frame
             solver = Solver(static_hamiltonian,
-                            jax.lax.stop_gradient(drive_hamiltonian),
+                            drive_hamiltonian,
                             rotating_frame=static_hamiltonian,
                             array_library="jax")
         else:
             solver = Solver(static_hamiltonian,
-                            jax.lax.stop_gradient(drive_hamiltonian),
+                            drive_hamiltonian,
                             array_library="jax")
         u0 = np.eye(u_ref.shape[0], dtype=complex)
 
