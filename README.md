@@ -26,7 +26,7 @@ These features help us to speedup tasks including
 
 ## Installation
 
-We suggest using python version >= 3.9.
+We suggest using python version >= 3.10.
 
 ```bash
 pip install supergrad
