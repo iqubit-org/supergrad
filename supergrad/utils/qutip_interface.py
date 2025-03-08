@@ -66,7 +66,8 @@ def to_qutip_operator_function_pair(hamiltonian_component_and_pulseshape):
                 keys(), {pulse.name: existed_params})
             params = hk.data_structures.merge(params, existed_params)
 
-            return lambda t, args: new_create_pulse.apply(params, t, args)
+            return lambda t, args: float(new_create_pulse.apply(
+                params, t, args))
 
         operator_function_pair_list.append([oper, pulse_closure(pulse)])
 
