@@ -44,7 +44,7 @@ def create_qubit_chain(params, n_qubit, truncated_dim):
     for i in range(n_qubit - 1):
         add_multi_coupling_term(fm_list,
                                 label1=f'fm{i}',
-                                label2=f'fm{i+1}',
+                                label2=f'fm{i + 1}',
                                 hilbertspace=hilbertspace,
                                 params=params)
     return hilbertspace, fm_list
