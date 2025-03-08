@@ -27,7 +27,8 @@ class PulseBase(hk.Module, ABC):
                  amp=None,
                  delay=0.,
                  modulate_wave=False,
-                 name: str = 'pulse'):
+                 name: str = 'pulse',
+                 **kwargs):
         super().__init__(name=name)
 
         if length is None:
@@ -85,7 +86,8 @@ class PulseTrapezoid(PulseBase):
             amp=None,
             delay=0,
             modulate_wave=False,
-            name: str = 'pulse_trapezoid'):
+            name: str = 'pulse_trapezoid',
+            **kwargs):
         super().__init__(length, amp, delay, modulate_wave, name)
 
         # construct activation function
@@ -128,7 +130,8 @@ class PulseCosineRamping(PulseBase):
             amp=None,
             delay=0,
             modulate_wave=False,
-            name: str = 'pulse_rampcos'):
+            name: str = 'pulse_rampcos',
+            **kwargs):
         super().__init__(length, amp, delay, modulate_wave, name)
 
         # construct activation function
@@ -179,7 +182,8 @@ class PulseGaussian(PulseBase):
             amp=None,
             delay=0,
             modulate_wave=False,
-            name: str = 'pulse_gaussian'):
+            name: str = 'pulse_gaussian',
+            **kwargs):
         super().__init__(length, amp, delay, modulate_wave, name)
 
         self.sigma = hk.get_parameter('sigma', [], init=jnp.ones)
@@ -222,7 +226,8 @@ class PulseGaussianSquare(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=False,
-                 name: str = 'pulse_gaussian_envelope'):
+                 name: str = 'pulse_gaussian_envelope',
+                 **kwargs):
         super().__init__(length, amp, delay, modulate_wave, name)
 
         self.sigma = hk.get_parameter('sigma', [], init=jnp.ones)
@@ -266,7 +271,8 @@ class PulseCosine(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=False,
-                 name: str = 'pulse_1mcos'):
+                 name: str = 'pulse_1mcos',
+                 **kwargs):
         super().__init__(length, amp, delay, modulate_wave, name)
 
     def create_envelope_pulse(self, t, args={}):
@@ -306,7 +312,8 @@ class PulseTanh(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=False,
-                 name: str = 'pulse_tanh'):
+                 name: str = 'pulse_tanh',
+                 **kwargs):
         super().__init__(length, amp, delay, modulate_wave, name)
 
         self.sigma = hk.get_parameter('sigma', [], init=jnp.ones)
@@ -356,7 +363,8 @@ class PulseErf(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=False,
-                 name: str = 'pulse_erf'):
+                 name: str = 'pulse_erf',
+                 **kwargs):
         super().__init__(length, amp, delay, modulate_wave, name)
 
         self.sigma = hk.get_parameter('sigma', [], init=jnp.ones)
@@ -402,7 +410,8 @@ class PulseWithDRAG(PulseBase):
                  amp=None,
                  delay=0,
                  modulate_wave=True,
-                 name: str = 'pulse_drag'):
+                 name: str = 'pulse_drag',
+                 **kwargs):
         assert modulate_wave is True
         super().__init__(length, amp, delay, modulate_wave, name)
 
