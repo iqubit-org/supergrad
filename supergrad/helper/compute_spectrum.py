@@ -40,7 +40,7 @@ class Spectrum(Helper):
             share_params=self.share_params,
             unify_coupling=self.unify_coupling,
             truncated_dim=self.truncated_dim,
-        )
+            **self.kwargs)
 
     def energy_tensor(self, greedy_assign=True):
         """Return the eigenenergy of quantum system in tensor form.
@@ -80,8 +80,8 @@ class Spectrum(Helper):
             ]
             list_phi_mat = [
                 self.hilbertspace.transform_operator(
-                    self.hilbertspace[name].phi_operator).reshape(
-                        self.dims * 2) for name in drive_subsys
+                    self.hilbertspace[name].phi_operator).reshape(self.dims * 2)
+                for name in drive_subsys
             ]
             # generate the slice index for drive_subsys, all the qubit not in the
             # drive_subsys will be set to 0

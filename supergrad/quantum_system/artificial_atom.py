@@ -54,17 +54,15 @@ class Fluxonium(CircuitLCJ):
                  is_basis_sym: bool = False,
                  name: str = 'fluxonium',
                  var: dict = None,
-                 drive_for_state_phase: str = 'charge') -> None:
+                 drive_for_state_phase: str = 'charge',
+                 **kwargs) -> None:
         super().__init__(False, basis, num_basis, truncated_dim, n_max, phi_max,
                          is_basis_sym, drive_for_state_phase, name)
 
         if not constant:
-            self._ec = hk.get_parameter('ec', [],
-                                        init=const_init(ec))
-            self._ej = hk.get_parameter('ej', [],
-                                        init=const_init(ej))
-            self._el = hk.get_parameter('el', [],
-                                        init=const_init(el))
+            self._ec = hk.get_parameter('ec', [], init=const_init(ec))
+            self._ej = hk.get_parameter('ej', [], init=const_init(ej))
+            self._el = hk.get_parameter('el', [], init=const_init(el))
             # add gaussian distribution variance
             self.add_lcj_params_variance(var)
         else:
@@ -157,7 +155,7 @@ class Fluxonium(CircuitLCJ):
             self.eigenenergies()
         n_in_raw_basis = self.create_n()
         n_eigenbasis = jnp.conj(self.eigvec_in_raw_basis
-                                ).T @ n_in_raw_basis @ self.eigvec_in_raw_basis
+                               ).T @ n_in_raw_basis @ self.eigvec_in_raw_basis
 
         return n_eigenbasis[:self.dim, :self.dim]
 
@@ -222,10 +220,11 @@ class Transmon(CircuitLCJ):
                  is_basis_sym: bool = False,
                  name: str = 'transmon',
                  var: jnp.ndarray = None,
-                 drive_for_state_phase: str = 'charge') -> None:
+                 drive_for_state_phase: str = 'charge',
+                 **kwargs) -> None:
         phi_max = np.pi  # Periodicity of 2pi
-        super().__init__(True, basis, num_basis, truncated_dim, n_max,
-                         phi_max, is_basis_sym, drive_for_state_phase, name)
+        super().__init__(True, basis, num_basis, truncated_dim, n_max, phi_max,
+                         is_basis_sym, drive_for_state_phase, name)
 
         if not constant:
             self._ec = hk.get_parameter('ec', [], init=const_init(ec))
@@ -281,7 +280,8 @@ class Transmon(CircuitLCJ):
         elif self.basis == "phase":
             n1 = self.transform_n_to_phi(jnp.diag(self.ar_n))
             n_square = self.transform_n_to_phi(jnp.diag(self.ar_n**2))
-            m = n_square - 2 * self.ng * n1 + jnp.eye(self.ar_phi.size) * self.ng**2
+            m = n_square - 2 * self.ng * n1 + jnp.eye(
+                self.ar_phi.size) * self.ng**2
             return m * (self.ec * 4)
 
     def create_v(self) -> jnp.ndarray:
@@ -292,8 +292,8 @@ class Transmon(CircuitLCJ):
         """
         if self.tunable:
             ej_eff = self.ej * jnp.sqrt(
-                jnp.cos(self.phiext / 2.0)**2
-                + self.d**2 * jnp.sin(self.phiext / 2.0)**2)
+                jnp.cos(self.phiext / 2.0)**2 +
+                self.d**2 * jnp.sin(self.phiext / 2.0)**2)
         else:
             ej_eff = self.ej
 
@@ -328,7 +328,7 @@ class Transmon(CircuitLCJ):
             self.eigenenergies()
         n_in_raw_basis = self.create_n()
         n_eigenbasis = jnp.conj(self.eigvec_in_raw_basis
-                                ).T @ n_in_raw_basis @ self.eigvec_in_raw_basis
+                               ).T @ n_in_raw_basis @ self.eigvec_in_raw_basis
 
         return n_eigenbasis[:self.dim, :self.dim]
 
@@ -366,12 +366,12 @@ class Resonator(QuantumSystem):
                  remove_zpe: bool = False,
                  constant: bool = False,
                  truncated_dim: int = 10,
-                 name: str = 'resonator') -> None:
+                 name: str = 'resonator',
+                 **kwargs) -> None:
         super().__init__(name=name)
 
         if not constant:
-            self.f_res = hk.get_parameter('f_res', [],
-                                          init=const_init(f_res))
+            self.f_res = hk.get_parameter('f_res', [], init=const_init(f_res))
         else:
             self.f_res = f_res
         self.remove_zpe = remove_zpe
