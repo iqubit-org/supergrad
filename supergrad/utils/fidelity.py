@@ -17,7 +17,7 @@ from .optimize import scipy_minimize
 pauli_mats = []
 pauli_mats.append(np.eye(2))
 pauli_mats.append(np.array([[0., 1.], [1., 0.]]))
-pauli_mats.append(np.array([[0., 1j], [-1j, 0.]]))
+pauli_mats.append(np.array([[0., -1j], [1j, 0.]]))
 pauli_mats.append(np.array(np.diag((1., -1.))))
 
 
