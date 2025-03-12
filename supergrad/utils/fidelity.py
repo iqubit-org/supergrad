@@ -12,12 +12,7 @@ import matplotlib.pyplot as plt
 import supergrad
 from supergrad.scgraph.graph import (parse_pre_comp_name, parse_post_comp_name)
 from .optimize import scipy_minimize
-
-pauli_mats = []
-pauli_mats.append(np.eye(2))
-pauli_mats.append(np.array([[0., 1.], [1., 0.]]))
-pauli_mats.append(np.array([[0., -1j], [1j, 0.]]))
-pauli_mats.append(np.array(np.diag((1., -1.))))
+from .utility import pauli_mats
 
 
 def compute_average_fidelity_with_leakage(u_target, u_computed):

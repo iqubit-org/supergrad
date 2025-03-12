@@ -255,9 +255,9 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
                 },
                 'compensation': {
                     'pre_comp':
-                        jnp.array([0.26824387, -0.00582382, 0.19798702]),
+                        jnp.array([0.26824387, -0.00582382, -0.19798702]),
                     'post_comp':
-                        jnp.array([0.01907886, -0.0714353, -0.27239727])
+                        jnp.array([0.01907886, -0.0714353, 0.27239727])
                 }
             })
 
@@ -265,9 +265,9 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
             'q03', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-1.42126234, 0.68387943, 0.09867095]),
+                        jnp.array([-1.42126234, 0.68387943, -0.09867095]),
                     'post_comp':
-                        jnp.array([-0.77910168, 0.16258883, -0.00519836])
+                        jnp.array([-0.77910168, 0.16258883, 0.00519836])
                 }
             })
 
@@ -285,9 +285,9 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
                 },
                 'compensation': {
                     'pre_comp':
-                        jnp.array([0.00466943, 0.78741568, -0.0862072]),
+                        jnp.array([0.00466943, 0.78741568, 0.0862072]),
                     'post_comp':
-                        jnp.array([-0.00220794, 0.38970001, -1.51744927])
+                        jnp.array([-0.00220794, 0.38970001, 1.51744927])
                 }
             })
 
@@ -295,9 +295,9 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
             'q13', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-1.09492337, -1.34049224, -1.11393925]),
+                        jnp.array([-1.09492337, -1.34049224, 1.11393925]),
                     'post_comp':
-                        jnp.array([-0.40020693, 0.7668882, -0.74054753])
+                        jnp.array([-0.40020693, 0.7668882, 0.74054753])
                 },
             })
 
@@ -315,10 +315,10 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
                 },
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-0.00160062, -1.50823985, 0.16763715]),
+                        jnp.array([-0.00160062, -1.50823985, -0.16763715]),
                     'post_comp':
                         jnp.array(
-                            [-1.03353877e-03, -1.75575364e+00, -1.10831887e-02])
+                            [-1.03353877e-03, -1.75575364e+00, 1.10831887e-02])
                 }
             })
 
@@ -326,9 +326,9 @@ class CNOTGatePeriodicGraph(PeriodicGraph):
             'q23', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-0.01605929, -0.1141277, -0.69661291]),
+                        jnp.array([-0.01605929, -0.1141277, 0.69661291]),
                     'post_comp':
-                        jnp.array([1.99985832, -0.92168355, -0.49487715])
+                        jnp.array([1.99985832, -0.92168355, 0.49487715])
                 },
             })
 
@@ -351,9 +351,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
             'q01', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-0.18729245, -0.26026559, 2.79556595]),
+                        jnp.array([-0.18729245, -0.26026559, -2.79556595]),
                     'post_comp':
-                        jnp.array([-0.78930838, 1.19644611, -1.06109615]),
+                        jnp.array([-0.78930838, 1.19644611, 1.06109615]),
                 },
             })
 
@@ -372,9 +372,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
                 'compensation': {
                     'pre_comp':
                         jnp.array(
-                            [-2.34791156e-04, 1.48276568e+00, 8.99221791e-01]),
+                            [-2.34791156e-04, 1.48276568e+00, -8.99221791e-01]),
                     'post_comp':
-                        jnp.array([0.55455219, 0.00073962, 0.20388206]),
+                        jnp.array([0.55455219, 0.00073962, -0.20388206]),
                 }
             })
 
@@ -382,9 +382,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
             'q11', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-0.09253156, 0.41565964, 0.26632383]),
+                        jnp.array([-0.09253156, 0.41565964, -0.26632383]),
                     'post_comp':
-                        jnp.array([-0.75489047, 1.68428959, -1.71317095]),
+                        jnp.array([-0.75489047, 1.68428959, 1.71317095]),
                 },
             })
 
@@ -402,9 +402,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
                 },
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-0.0400265, -0.29959335, -3.0960532]),
+                        jnp.array([-0.0400265, -0.29959335, 3.0960532]),
                     'post_comp':
-                        jnp.array([1.37150942, -0.0108739, -1.19826934]),
+                        jnp.array([1.37150942, -0.0108739, 1.19826934]),
                 }
             })
 
@@ -412,9 +412,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
             'q21', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([0.50715299, -0.8000848, -0.72776202]),
+                        jnp.array([0.50715299, -0.8000848, 0.72776202]),
                     'post_comp':
-                        jnp.array([2.32881958, -0.63164007, -0.46285065]),
+                        jnp.array([2.32881958, -0.63164007, 0.46285065]),
                 },
             })
 
@@ -434,9 +434,9 @@ class CNOTGatePeriodicGraph2(PeriodicGraph):
                     'pre_comp':
                         jnp.array(
                             [-6.06081433e-04, -1.64773922e+00,
-                             -2.04536211e+00]),
+                             2.04536211e+00]),
                     'post_comp':
-                        jnp.array([3.13436934, 0.53835986, -0.79312629]),
+                        jnp.array([3.13436934, 0.53835986, 0.79312629]),
                 }
             })
 
@@ -660,9 +660,9 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
                 },
                 'compensation': {
                     'pre_comp':
-                        jnp.array([0.05671005, 0.02682845, 0.0395099]),
+                        jnp.array([0.05671005, 0.02682845, -0.0395099]),
                     'post_comp':
-                        jnp.array([-0.01528741, 0.04418319, -0.374539]),
+                        jnp.array([-0.01528741, 0.04418319, 0.374539]),
                 }
             })
 
@@ -670,9 +670,9 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
             'q03', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-1.46070525, 0.66029355, 0.06603344]),
+                        jnp.array([-1.46070525, 0.66029355, -0.06603344]),
                     'post_comp':
-                        jnp.array([-1.00629771, 0.16411027, -0.00797514]),
+                        jnp.array([-1.00629771, 0.16411027, 0.00797514]),
                 },
             })
 
@@ -690,9 +690,9 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
                 },
                 'compensation': {
                     'pre_comp':
-                        jnp.array([0.00185588, 1.00099539, -0.22439037]),
+                        jnp.array([0.00185588, 1.00099539, 0.22439037]),
                     'post_comp':
-                        jnp.array([0.00200104, 0.58679953, -1.74804011]),
+                        jnp.array([0.00200104, 0.58679953, 1.74804011]),
                 }
             })
 
@@ -700,9 +700,9 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
             'q13', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([-1.02837338, -1.10918103, -0.80985523]),
+                        jnp.array([-1.02837338, -1.10918103, 0.80985523]),
                     'post_comp':
-                        jnp.array([-0.11690826, 1.09973631, -1.0941268]),
+                        jnp.array([-0.11690826, 1.09973631, 1.0941268]),
                 },
             })
 
@@ -721,11 +721,11 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
                 'compensation': {
                     'pre_comp':
                         jnp.array(
-                            [-1.90040736e-04, -1.34752499e+00, 3.15152817e-01]),
+                            [-1.90040736e-04, -1.34752499e+00, -3.15152817e-01]),
                     'post_comp':
                         jnp.array(
                             [-1.42308406e-03, -1.59853235e+00,
-                             -1.88352743e-01]),
+                             1.88352743e-01]),
                 }
             })
 
@@ -733,9 +733,9 @@ class CNOTGatePeriodicGraphOpt(PeriodicGraphOpt):
             'q23', **{
                 'compensation': {
                     'pre_comp':
-                        jnp.array([0.36516325, -0.38763126, -0.41575102]),
+                        jnp.array([0.36516325, -0.38763126, 0.41575102]),
                     'post_comp':
-                        jnp.array([1.65404972, -0.67251125, -0.04376101]),
+                        jnp.array([1.65404972, -0.67251125, 0.04376101]),
                 },
             })
 

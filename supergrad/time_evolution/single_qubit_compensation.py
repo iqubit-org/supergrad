@@ -4,12 +4,7 @@ import haiku as hk
 
 from supergrad.scgraph.graph import (SCGraph, parse_pre_comp_name,
                                      parse_post_comp_name)
-
-pauli_mats = []
-pauli_mats.append(np.eye(2))
-pauli_mats.append(np.array([[0., 1.], [1., 0.]]))
-pauli_mats.append(np.array([[0., 1j], [-1j, 0.]]))
-pauli_mats.append(np.array(np.diag((1., -1.))))
+from supergrad.utils.utility import pauli_mats
 
 
 class SingleQubitCompensation(hk.Module):
