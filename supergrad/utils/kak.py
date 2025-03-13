@@ -6,6 +6,7 @@ import jax.scipy.linalg as jlin
 from functools import partial
 
 from supergrad.utils.gates import sigmax, sigmay, sigmaz, tensor, identity
+from supergrad.utils.fidelity import conv_sq_angles_to_u
 
 # Convert angles to xx,yy,zz
 # Eq. 8 magic basis
@@ -320,8 +321,20 @@ def canonicalize_kak1_with_1q(k0: jax.Array, a1: jax.Array, a0: jax.Array, b1: j
 
     return k * (pi / 2), a1, a0, b1, b0
 
+def conv_k_to_u_interaction(k: jax.Array) -> jax.Array:
+    r"""Construct the interaction part :math:`exp(i \vec{k} \cdot \vec{\Sigma}) in KAK1 decomposition.
 
-def construct_u_from_k_1q(k: jax.Array, a1: jax.Array, a0: jax.Array, b1: jax.Array, b0: jax.Array) -> jax.Array:
+    Args:
+        k: KAK1 class vector
+
+    Returns:
+        the 4x4 unitary as the interaction part.
+    """
+    terms = [k[ix] * tensor(ar_pauli_xyz[ix], ar_pauli_xyz[ix]) for ix in range(len(ar_half_xyz))]
+    mid = jlin.expm(1j * (terms[0] + terms[1] + terms[2]))
+    return mid
+
+def conv_k_1q_to_u(k: jax.Array, a1: jax.Array, a0: jax.Array, b1: jax.Array, b0: jax.Array) -> jax.Array:
     """Constructs the unitary matrix from KAK1 coefficients and 1Q operations.
 
     Args:
@@ -334,7 +347,24 @@ def construct_u_from_k_1q(k: jax.Array, a1: jax.Array, a0: jax.Array, b1: jax.Ar
     Returns:
         the 4x4 unitary
     """
-    terms = [k[ix] * tensor(ar_pauli_xyz[ix], ar_pauli_xyz[ix]) for ix in range(4)]
-    mid = jlin.expm(1j * (terms[0] + terms[1] + terms[2]))
+    mid = conv_k_to_u_interaction(k)
     u = tensor(a1, a0) @ mid @ tensor(b1, b0)
     return u
+
+
+def conv_k_1q_angles_to_u(k: jax.Array, a1: jax.Array, a0: jax.Array, b1: jax.Array, b0: jax.Array) -> jax.Array:
+    """Constructs the unitary matrix from KAK1 coefficients and 1Q angles.
+
+    The angle definition is identical to :func`supergrad.utils.fidelity.construct_sq_from_angles`.
+
+    Args:
+        k: KAK1 class vector
+        a1: angles of U(2) after on Q1
+        a0: angles of U(2) after on Q0
+        b1: angles of U(2) before on Q1
+        b0: angles of U(2) before on Q0
+
+    Returns:
+        the 4x4 unitary
+    """
+    return conv_k_1q_to_u(k, *[conv_sq_angles_to_u(x) for x in (a1, a0, b1, b0)])

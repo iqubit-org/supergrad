@@ -2,7 +2,10 @@ import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jlin
 from supergrad.utils.gates import sigmax, sigmay, sigmaz, tensor, identity
-from supergrad.utils.kak import kak1_decomposition, construct_u_from_k_1q
+from supergrad.utils.fidelity import (apply_6nsq_axis, conv_sq_u_to_angles, conv_sq_angles_to_u,
+                                      conv_sq_angles_to_6nsq)
+from supergrad.utils.kak import (kak1_decomposition, conv_k_1q_to_u, conv_k_1q_angles_to_u,
+                                 conv_k_to_u_interaction)
 from functools import partial
 
 u1 = jnp.array([
@@ -42,6 +45,8 @@ list_q = [
     },
 
 ]
+
+
 def get_coef_xx(anglex1, u):
     ux = jlin.expm(1j * anglex1 * tensor(sigmax(), identity(2))) @ u
     k, a1, a0, b1, b0 = kak1_decomposition(ux, canonical=True, all_positive=False)
@@ -52,12 +57,13 @@ def test_kak():
     tol_same = 1e-6
     for q in list_q:
         k, a1, a0, b1, b0 = kak1_decomposition(q["u"], **q["option"])
-        uc = construct_u_from_k_1q(k, a1, a0, b1, b0)
+        uc = conv_k_1q_to_u(k, a1, a0, b1, b0)
         err = jnp.abs(jnp.abs(jnp.trace(q["u"] @ uc.conj().T)) - 4)
         # Check if the answer is correct
         assert jnp.abs(k - q["k"]).max() < tol_same
         # Check if U can be reconstructed from results correctly
         assert err < tol_same
+
 
 def test_kak_grad():
     tol_same = 1e-6
@@ -66,3 +72,18 @@ def test_kak_grad():
         # Gradient of input angle should be 0 ( not relevant to 2Q part)
         kxx, gkxx = fg(0.1)
         assert jnp.abs(gkxx) < tol_same
+
+
+def test_kak_angle():
+    tol_same = 1e-6
+    for q in list_q:
+        k, a1, a0, b1, b0 = kak1_decomposition(q["u"], **q["option"])
+        angles = [conv_sq_u_to_angles(x)[:3] for x in (a1, a0, b1, b0)]
+        uc = conv_k_1q_angles_to_u(k, *angles)
+        err = jnp.abs(jnp.abs(jnp.trace(q["u"] @ uc.conj().T)) - 4)
+        assert err < tol_same
+        p6nsq = conv_sq_angles_to_6nsq(*angles)
+        uc2 = apply_6nsq_axis(p6nsq, conv_k_to_u_interaction(k))
+        err2 = jnp.abs(jnp.abs(jnp.trace(q["u"] @ uc2.conj().T)) - 4)
+        assert err2 < tol_same
+

@@ -32,7 +32,7 @@ def compute_average_fidelity_with_leakage(u_target, u_computed):
 
     n = u_computed.shape[0]
     res = (jnp.trace(jnp.conj(u_computed.T) @ u_computed) +
-           abs(jnp.trace(jnp.conj(u_target.T) @ u_computed))**2) / n / (n + 1)
+           abs(jnp.trace(jnp.conj(u_target.T) @ u_computed)) ** 2) / n / (n + 1)
     return jnp.abs(res)
 
 
@@ -44,7 +44,7 @@ def compute_state_fidelity(psi_target, psi_computed):
         psi_target (array): Target state
         psi_computed (array): Test state
     """
-    return jnp.abs(jnp.vdot(psi_target, psi_computed))**2
+    return jnp.abs(jnp.vdot(psi_target, psi_computed)) ** 2
 
 
 def apply_2nz(ps, u):
@@ -73,6 +73,107 @@ def apply_2nz(ps, u):
     u2 = supergrad.tensor(*pre_unitaries)
     u3 = supergrad.tensor(*post_unitaries)
     return u3 @ u @ u2
+
+
+def conv_sq_u_to_angles(u):
+    """Converts a 2x2 unitary matrix in the representation of rotation on axis theta, phi and
+    angle gamma.
+
+    The output order is consistent with :func:`apply_6nsq_axis` function in the order of theta, gamma, phi, global phase.
+
+    To avoid numerical issues, some angles are fixed if the [0,0] or [0,1] are very close to zero.
+
+    Args:
+        u:  2x2 matrix
+
+    Returns:
+        theta, gamma, phi, global phase: 4 angles in radian
+    """
+    tol = 1e-8
+
+    # Off-diagonal term ~ 0, skip phi
+    if jnp.abs(u[0, 1]) < tol:
+        phi = 0.0
+    else:
+        # Check extreme cases
+        ratio = u[1, 0] / u[0, 1]
+        phi = jnp.angle(ratio).real / 2
+
+    expmphi = jnp.cos(phi) - 1j * jnp.sin(phi)
+
+    # Note it is best to check if arguments of arc* is real
+    # For ill input, the output is ill, which is OK anyway.
+    # Diagonal term ~ 0, skip calculation of gamma
+    if jnp.abs(u[0, 0]) < tol:
+        gamma = pi / 2
+        expphig_sin_theta = u[0, 1] / (1j * expmphi)
+        phig = jnp.angle(expphig_sin_theta ** 2) / 2
+        expphig = jnp.cos(phig) + 1j * jnp.sin(phig)
+        sin_theta = expphig_sin_theta / expphig
+        theta = jnp.arcsin(sin_theta.real)
+    else:
+        expphig_cos_gamma = (u[1, 1] + u[0, 0]) / 2
+        phig = jnp.angle(expphig_cos_gamma ** 2) / 2
+        expphig = jnp.cos(phig) + 1j * jnp.sin(phig)
+        cos_gamma = expphig_cos_gamma / expphig
+        gamma = jnp.arccos(cos_gamma.real)
+        sin_theta = u[0, 1] / (expphig * 1j * jnp.sin(gamma) * expmphi)
+        cos_theta = (u[0, 0] - u[1, 1]) / (2j * expphig * jnp.sin(gamma))
+        theta = jnp.atan2(sin_theta.real, cos_theta.real)
+
+    return jnp.array([theta, gamma, phi, phig])
+
+
+def conv_sq_angles_to_u(p: jax.Array):
+    """Construct a single-qubit gate from 3 angles (axis theta/phi, angle gamma), global phase optionally.
+
+    Args:
+        p (array): size 3: array of theta, gamma and phi.
+            size 4: final one is the global phase.
+
+    Returns:
+        u: 2x2 unitary matrix
+    """
+    u = jnp.cos(p[1]) * pauli_mats[0] + 1j * jnp.sin(p[1]) * (jnp.cos(p[0]) * pauli_mats[3] + jnp.sin(p[0]) * (
+            jnp.cos(p[2]) * pauli_mats[1] + jnp.sin(p[2]) * pauli_mats[2]))
+    if p.size == 4:
+        u *= jnp.cos(p[3]) + 1j * jnp.sin(p[3])
+    return u
+
+
+def conv_sq_angles_to_6nsq(a1: jax.Array, a0: jax.Array, b1: jax.Array, b0: jax.Array) -> jax.Array:
+    """Converts 4 1Q angles to a 2D array compatible 6N SQ functions.
+
+    The output is compatible with :func`supergrad.utils.fidelity.apply_6nsq_axis`.
+
+    Note the global phase is discarded.
+
+    Args:
+        a1: angles of U(2) after on Q1
+        a0: angles of U(2) after on Q0
+        b1: angles of U(2) before on Q1
+        b0: angles of U(2) before on Q0
+
+    Returns:
+        4x3 array for 6n SQ function
+    """
+    return jnp.stack([b1, b0, a1, a0], axis=0)[..., :3]
+
+
+def conv_6nsq_to_sq_angles(p: jax.Array) -> Tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
+    """Converts 6N SQ 2D parameters to 4 1Q angles.
+
+    The input is compatible with :func`supergrad.utils.fidelity.apply_6nsq_axis`.
+
+    Note the global phase is not included, so
+
+    Args:
+        p: 4x3 arrays for 6N SQ
+
+    Returns:
+        4 arrays for 1Q angles in a1, a0, b1, b0.
+    """
+    return p[2], p[3], p[0], p[1]
 
 
 def apply_6nsq_axis(ps, u):
@@ -160,7 +261,7 @@ def compute_compensation_iswap_gate_vz(u_target, u_computed):
         jnp.diag(
             jnp.array([
                 phase00, -phase21 * 1j, -phase12 * 1j,
-                -phase12 * phase21 / phase00
+                         -phase12 * phase21 / phase00
             ])))
 
     return u_computed
@@ -189,7 +290,7 @@ def simple_vz_compensation_angle(u_target,
     n = int(np.log2(d.size))
     single_q_phase_lst = []
     for i in range(n):
-        single_q_phase_lst.append(d[0] / d[2**(n - 1 - i)])
+        single_q_phase_lst.append(d[0] / d[2 ** (n - 1 - i)])
         single_q_phase_lst[-1] = single_q_phase_lst[-1] / jnp.abs(
             single_q_phase_lst[-1])
 
@@ -197,7 +298,7 @@ def simple_vz_compensation_angle(u_target,
         1,
     ])
     for i in range(n):
-        vz_diag = jnp.kron(vz_diag, jnp.array([1, single_q_phase_lst[i]**(-1)]))
+        vz_diag = jnp.kron(vz_diag, jnp.array([1, single_q_phase_lst[i] ** (-1)]))
 
     return np.angle(np.array(single_q_phase_lst)), jnp.diag(vz_diag)
 
@@ -221,12 +322,12 @@ def simple_vz_compensation(u_target, u_computed) -> jnp.ndarray:
 
 
 def estimate_vz(
-    evo,
-    params,
-    unitary,
-    num_qubit,
-    transform_matrix=None,
-    options: dict = None,
+        evo,
+        params,
+        unitary,
+        num_qubit,
+        transform_matrix=None,
+        options: dict = None,
 ):
     """Estimates the Virtual-Z gate to correct
 
@@ -254,7 +355,7 @@ def estimate_vz(
     print(res.state)
     qubit_list = getattr(evo.graph, 'qubit_subsystem', evo.graph.sorted_nodes)
     list_key = [parse_pre_comp_name(node) for node in qubit_list
-               ] + [parse_post_comp_name(node) for node in qubit_list]
+                ] + [parse_post_comp_name(node) for node in qubit_list]
 
     params["single_q_compensation"] = dict([
         (key, val) for key, val in zip(list_key, res.params)
@@ -264,14 +365,14 @@ def estimate_vz(
 
 
 def estimate_vsq(
-    evo,
-    params,
-    unitary,
-    num_qubit,
-    transform_matrix=None,
-    initial_guess=None,
-    options: dict = None,
-    use_scipy_optimizer=False,
+        evo,
+        params,
+        unitary,
+        num_qubit,
+        transform_matrix=None,
+        initial_guess=None,
+        options: dict = None,
+        use_scipy_optimizer=False,
 ):
     """Estimates the virtual single qubit gate to correct.
 
@@ -317,7 +418,7 @@ def estimate_vsq(
                                     **options)['x']
     qubit_list = getattr(evo.graph, 'qubit_subsystem', evo.graph.sorted_nodes)
     list_key = [parse_pre_comp_name(node) for node in qubit_list
-               ] + [parse_post_comp_name(node) for node in qubit_list]
+                ] + [parse_post_comp_name(node) for node in qubit_list]
 
     params["single_q_compensation"] = dict([
         (key, val) for key, val in zip(list_key, res.params)
@@ -422,7 +523,8 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
                                            opt_method: str = 'gd',
                                            compensation_option='only_vz',
                                            options: dict = None,
-                                           multi_init: bool = False):
+                                           multi_init: bool = False,
+                                           return_1q=False):
     """
     Compute fidelity, allows for any single qubit rotation before/after
 
@@ -439,6 +541,13 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
             optimizer.
         multi_init: use multiple initial guess to avoid local minimum.
             Only useful for `lbfgs` and `gd`.
+        return_1q: whether to return 1Q gate coefficients.
+
+    Returns:
+        fidelity,
+        rotated unitary matrices,
+        1q parameters in 1-d array if `return_1q` is True
+
     """
     assert compensation_option in ['no_comp', 'only_vz', 'arbit_single']
     n_qubit = round(np.log2(u_target.shape[0]))
@@ -461,15 +570,15 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
             # Setup several starting points per qubit (others zero)
             # 2x2x2 combination of three angles (duplicated removed) with randomness
             initial_guess_1q = np.array([
-                                    [0+0.4, 0+0.2, 0+0.65],
-                                    [0.2, pi/2+0.3, 0.0+0.45],
-                                    [pi/2 - 0.3, pi/2 - 0.4, 0.0 + 0.35],
-                                    [pi/2 - 0.5, pi/2 - 0.6, pi/2 + 0.35],
-                                    ])
+                [0 + 0.4, 0 + 0.2, 0 + 0.65],
+                [0.2, pi / 2 + 0.3, 0.0 + 0.45],
+                [pi / 2 - 0.3, pi / 2 - 0.4, 0.0 + 0.35],
+                [pi / 2 - 0.5, pi / 2 - 0.6, pi / 2 + 0.35],
+            ])
             n_guess = initial_guess_1q.shape[0]
             initial_guess_multi = np.zeros((n_guess * n_qubit, 2 * n_qubit, 3))
             for ix_q in range(n_qubit):
-                initial_guess_multi[ix_q * n_guess: ix_q * n_guess + n_guess,  ix_q, : ] = initial_guess_1q
+                initial_guess_multi[ix_q * n_guess: ix_q * n_guess + n_guess, ix_q, :] = initial_guess_1q
             initial_guess_multi = jnp.asarray(initial_guess_multi)
     elif compensation_option == 'no_comp':
         return f(u_target, u_computed).real, u_computed
@@ -509,7 +618,8 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
         )
 
     if multi_init and opt_method in ['lbfgs', 'gd']:
-        list_res = [solver.run(initial_guess_single, u_target=u_target, u_computed=u_computed) for initial_guess_single in initial_guess_multi]
+        list_res = [solver.run(initial_guess_single, u_target=u_target, u_computed=u_computed) for initial_guess_single
+                    in initial_guess_multi]
         res = list_res[jnp.argmin(jnp.asarray([x.state.value for x in list_res]))]
     else:
         res = solver.run(initial_guess, u_target=u_target, u_computed=u_computed)
@@ -521,7 +631,10 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
     else:
         u_optimal = apply_6nsq_axis(res.params, u_computed)
 
-    return f(u_target, u_optimal).real, u_optimal
+    if return_1q:
+        return f(u_target, u_optimal).real, u_optimal, res.params
+    else:
+        return f(u_target, u_optimal).real, u_optimal
 
 
 def u_to_pauli(u: ndarray) -> jnp.ndarray:
@@ -540,7 +653,7 @@ def u_to_pauli(u: ndarray) -> jnp.ndarray:
     def scan_func(carry, target_idx):
         pauli_mats_array = jnp.array(pauli_mats)
         u_pauli = supergrad.tensor(*pauli_mats_array[target_idx])
-        pauli_weights = jnp.abs(jnp.trace(u @ u_pauli))**2
+        pauli_weights = jnp.abs(jnp.trace(u @ u_pauli)) ** 2
         return carry, pauli_weights
 
     idxs = jnp.array(
@@ -549,7 +662,7 @@ def u_to_pauli(u: ndarray) -> jnp.ndarray:
 
     pauli_weights_tensor = jnp.reshape(pauli_weights_array, (4,) * num_qubits)
 
-    return pauli_weights_tensor / 4**num_qubits
+    return pauli_weights_tensor / 4 ** num_qubits
 
 
 def cphase_angle_opt(u):
