@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 import itertools
 import numpy as np
 from numpy import pi
@@ -75,7 +75,7 @@ def apply_2nz(ps, u):
     return u3 @ u @ u2
 
 
-def conv_sq_u_to_angles(u):
+def conv_sq_u_to_angles(u, canonical: bool = True):
     """Converts a 2x2 unitary matrix in the representation of rotation on axis theta, phi and
     angle gamma.
 
@@ -122,6 +122,41 @@ def conv_sq_u_to_angles(u):
         theta = jnp.atan2(sin_theta.real, cos_theta.real)
 
     return jnp.array([theta, gamma, phi, phig])
+
+def canonicalize_sq_angles(ang: jax.Array):
+    r"""
+    Canonicalizes 1Q gate angles (theta, gamma, phi) in :func:`conv_sq_u_to_angles` and :func:`apply_6nsq_axis`.
+
+    The range follows :math:`$\gamma\in[-\pi, \pi],\theta\in[0, \pi],\phi\in[0,\pi]$, 
+    which means the axis in only in half sphere.
+
+    There are three equivalent combinations of angles: 
+    :math:`$(\gamma,\theta,\phi),(-\gamma,\pi-\theta,\pi+\phi),(-\gamma,\theta+\pi,\phi)$`
+
+    Args:
+        ang: 3-elements angles
+
+    Returns:
+        3-elements angles canonicalized.
+    """
+    # Change into [-pi, pi]
+    ang = jnp.remainder(ang + pi, 2 * pi) - pi
+    theta = ang[0]
+    gamma = ang[1]
+    phi = ang[2]
+    if theta < 0:
+        gamma = -gamma
+        if phi < 0:
+            theta = - theta - pi
+            phi = pi + phi
+        else:
+            theta = theta + pi
+    else:
+        if phi < 0:
+            gamma = -gamma
+            theta = pi - theta
+            phi = pi + phi
+    return jnp.array((theta, gamma, phi))
 
 
 def conv_sq_angles_to_u(p: jax.Array):
@@ -524,7 +559,8 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
                                            compensation_option='only_vz',
                                            options: dict = None,
                                            multi_init: bool = False,
-                                           return_1q=False):
+                                           return_1q=False,
+                                           initial_guess: Optional[jnp.ndarray]=None):
     """
     Compute fidelity, allows for any single qubit rotation before/after
 
@@ -542,6 +578,8 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
         multi_init: use multiple initial guess to avoid local minimum.
             Only useful for `lbfgs` and `gd`.
         return_1q: whether to return 1Q gate coefficients.
+        initial_guess: specify an initial guess of the single qubit rotations. Overrides `multi_init`.
+            Note this must be consistent with `compensation_option`.
 
     Returns:
         fidelity,
@@ -550,6 +588,7 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
 
     """
     assert compensation_option in ['no_comp', 'only_vz', 'arbit_single']
+    assert not (multi_init and initial_guess is not None)
     n_qubit = round(np.log2(u_target.shape[0]))
     if options is None:
         options = {}
@@ -560,12 +599,14 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
     # initialize single qubit compensation
     if compensation_option == 'only_vz':
         error = log_infidelity_with_vz
-        initial_guess = jnp.zeros([2 * n_qubit])
+        if initial_guess is None:
+            initial_guess = jnp.zeros([2 * n_qubit])
         if multi_init:
             initial_guess_multi = jnp.eye(2 * n_qubit)
     elif compensation_option == 'arbit_single':
         error = log_infidelity_with_vsq
-        initial_guess = jnp.zeros([2 * n_qubit, 3])
+        if initial_guess is None:
+            initial_guess = jnp.zeros([2 * n_qubit, 3])
         if multi_init:
             # Setup several starting points per qubit (others zero)
             # 2x2x2 combination of three angles (duplicated removed) with randomness
@@ -620,7 +661,8 @@ def compute_fidelity_with_1q_rotation_axis(u_target,
     if multi_init and opt_method in ['lbfgs', 'gd']:
         list_res = [solver.run(initial_guess_single, u_target=u_target, u_computed=u_computed) for initial_guess_single
                     in initial_guess_multi]
-        res = list_res[jnp.argmin(jnp.asarray([x.state.value for x in list_res]))]
+        ix_min = jnp.argmin(jnp.asarray([x.state.value for x in list_res]))
+        res = list_res[ix_min]
     else:
         res = solver.run(initial_guess, u_target=u_target, u_computed=u_computed)
     # print(initial_guess)
