@@ -56,7 +56,20 @@ class Spectrum(Helper):
                 and do one more assignment, thus the energy map will be more accurate
                 for the computational basis.
         """
-        if enhanced_check:
+        if isinstance(enhanced_check, SCGraph):
+            # create a qubit chain with larger anharnomic
+            #TODO: using lax stop gradient
+            new_self = Spectrum(enhanced_check,
+                                truncated_dim=self.truncated_dim,
+                                add_random=self.add_random,
+                                share_params=self.share_params,
+                                unify_coupling=self.unify_coupling,
+                                *self.args,
+                                **self.kwargs)
+            _, enhanced_check_data = new_self.energy_tensor(new_self.all_params,
+                                                            greedy_assign,
+                                                            return_eigvec=True)
+        elif enhanced_check:
             # create a sub-Hilbertspace for the spin-chain
             #TODO: using lax stop gradient
             new_self = Spectrum(self.graph,

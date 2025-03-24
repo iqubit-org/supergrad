@@ -331,7 +331,7 @@ class InteractingSystem(QuantumSystem):
                 return carry, None
 
             def enhanced_scan_func(carry, spin_idx):
-                index_map, amp = carry
+                index_map, amp, truncated_eigvec = carry
                 # get the spin eigenvector
                 spin_eigvec = enhanced_check_data[tuple(spin_idx)]
                 # compute the overlap between spin eigenvector and subsystem eigenvector
@@ -341,28 +341,33 @@ class InteractingSystem(QuantumSystem):
                 # ravel index back to the full Hilbertspace
                 # Set the weight of basis ix of all wave functions to be 0
                 # to avoid assigning the same state for multiple times.
+                next_truncated_eigvec = truncated_eigvec.at[:, ix].set(0)
                 next_amp = amp.at[:, ix].set(0)
                 next_index_map = index_map.at[tuple(spin_idx)].set(ix)
-                carry = [next_index_map, next_amp]
+                carry = [next_index_map, next_amp, next_truncated_eigvec]
                 return carry, None
 
             idxs = [idx for idx in np.ndindex(self.truncated_dim)]
             carry = [ar_index_map, amp]
 
             if enhanced_check_data is not None:
+                enhanced_shape = enhanced_check_data.shape[:-1]
                 # running the enhanced assignment for computation basis
                 # truncated the subsystem eigenvector to the spin space
-                truncated_eigvec = self.eigvec.reshape(self.truncated_dim + (
-                    -1,))[(slice(0, 2, 1),) * self.subsystem_count].reshape(
-                        2**self.subsystem_count, -1)
+                truncated_eigvec = self.eigvec.reshape(
+                    self.truncated_dim + (-1,))[tuple([
+                        slice(0, i, 1) for i in enhanced_shape
+                    ])].reshape(np.prod(enhanced_shape), -1)
                 # setup the scan parameters
                 spin_idxs = []
-                for idx in np.ndindex((2,) * self.subsystem_count):
+                for idx in np.ndindex(enhanced_shape):
                     spin_idxs.append(idx)
                     # drop the computational basis in idxs
                     idxs.remove(idx)
-                carry, _ = jax.lax.scan(enhanced_scan_func, carry,
+                carry, _ = jax.lax.scan(enhanced_scan_func,
+                                        carry + [truncated_eigvec],
                                         jnp.array(spin_idxs))
+                carry = carry[:-1]
             # back to the standard assignment
             if idxs:
                 (self.ar_index_map,
