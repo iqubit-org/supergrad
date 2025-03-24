@@ -1,5 +1,6 @@
 from typing import Callable, Union, List
 import re
+from copy import deepcopy
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -75,14 +76,12 @@ class InteractionTerm(hk.Module):
         name: module name
     """
 
-    def __init__(
-        self,
-        operator_list: List[Callable],
-        strength: float = None,
-        add_hc: bool = False,
-        constant: bool = False,
-        name: str = 'interaction_term'
-    ) -> None:
+    def __init__(self,
+                 operator_list: List[Callable],
+                 strength: float = None,
+                 add_hc: bool = False,
+                 constant: bool = False,
+                 name: str = 'interaction_term') -> None:
         super().__init__(name=name)
         if not constant:
             self.strength = hk.get_parameter('strength', [],
@@ -92,9 +91,7 @@ class InteractionTerm(hk.Module):
         self.operator_list = operator_list
         self.add_hc = add_hc
 
-    def hamiltonian(
-            self,
-            subsystem_list: List) -> jnp.ndarray:
+    def hamiltonian(self, subsystem_list: List) -> jnp.ndarray:
         """Returns the full Hamiltonian of the interacting quantum system
         described by the InteractingSystem object
 
@@ -104,16 +101,13 @@ class InteractionTerm(hk.Module):
                 needed for identity wrapping
         """
 
-        hamiltonian = self.id_wrap_all_ops(self.operator_list,
-                                           subsystem_list)
+        hamiltonian = self.id_wrap_all_ops(self.operator_list, subsystem_list)
         if self.add_hc:
             hamiltonian += hamiltonian.dag()
         return hamiltonian
 
-    def id_wrap_all_ops(
-            self,
-            operator_list: List[Callable],
-            subsystem_list: List[QuantumSystem]) -> KronObj:
+    def id_wrap_all_ops(self, operator_list: List[Callable],
+                        subsystem_list: List[QuantumSystem]) -> KronObj:
         """Construct a KronObj which represents the interaction operator on the
         Hilbert space. Identity operators of other subsystems are tensored to the
         interaction operator
@@ -153,8 +147,8 @@ class InteractingSystem(QuantumSystem):
         # Initialize subsystem
         self._subsystems: List[QuantumSystem] = tuple(subsystem_list)
         self._subsystem_by_id_str = {
-            subsystem.name: subsystem
-            for subsystem in self._subsystems}
+            subsystem.name: subsystem for subsystem in self._subsystems
+        }
         # Initialize interaction
         if isinstance(interaction_list, InteractionTerm):
             interaction_list = [interaction_list]
@@ -163,7 +157,8 @@ class InteractingSystem(QuantumSystem):
         self.interaction_list = interaction_list
         self._interaction_term_by_id_str = {
             interaction_term.name: interaction_term
-            for interaction_term in self.interaction_list}
+            for interaction_term in self.interaction_list
+        }
         self._truncated_dim = self.dim
 
         # Cached variable
@@ -225,8 +220,8 @@ class InteractingSystem(QuantumSystem):
         ham_list = []
         for subsys_index, subsys in enumerate(self):
             evals = subsys.eigenenergies()
-            ham_list.append(
-                KronObj([jnp.diag(evals)], self.dim, [subsys_index]))
+            ham_list.append(KronObj([jnp.diag(evals)], self.dim,
+                                    [subsys_index]))
         return sum(ham_list)
 
     def coupling_hamiltonian(self) -> jnp.ndarray:
@@ -243,8 +238,7 @@ class InteractingSystem(QuantumSystem):
         operator_list = []
         for term in self.interaction_list:
             if isinstance(term, InteractionTerm):
-                operator_list.append(
-                    term.hamiltonian(self.subsystem_list))
+                operator_list.append(term.hamiltonian(self.subsystem_list))
             else:
                 raise TypeError("Expected an instance of InteractionTerm, "
                                 f"got {type(term)} instead.")
@@ -279,11 +273,13 @@ class InteractingSystem(QuantumSystem):
         if len(self.dim) != len(value):
             raise ValueError(
                 'Truncated_dim must be tuple that have the same length'
-                'as dim.'
-            )
+                'as dim.')
         self._truncated_dim = tuple(value)
 
-    def compute_energy_map(self, greedy_assign=True) -> jnp.ndarray:
+    def compute_energy_map(self,
+                           greedy_assign=True,
+                           enhanced_check_data=None,
+                           return_eigvec=False) -> jnp.ndarray:
         """
         Compute the energy of the whole system in the dressed indices,
         enumerating eigenenergies and eigenstates as j=0,1,2,... starting from
@@ -302,8 +298,16 @@ class InteractingSystem(QuantumSystem):
             greedy_assign(bool): if True, use greedy assignment mode
                 TODO The greedy assignment mode ignores the issue "same state be assigned
                 multiple times", due to the weak coupling of subsystems.
+            enhanced_check_data(array): if None, do not use enhanced check mode.
+                if 2d-array, use enhanced check mode, the column should be in
+                the flat indices order of energy tensor.
+                The enhanced check mode will construct a spin-chain in subspace
+                and do one more assignment, thus the energy map will be more accurate
+                for the computational basis.
+            return_eigvec(bool): if True, return the eigenvectors of the system.
         """
-
+        assert enhanced_check_data is None or not greedy_assign, (
+            "enhanced_check_data can only be used in standard mode.")
         self.eigval, self.eigvec = self._calc_eigsys()
         # Choose the row map to [i, j, ...] state, and find the maximum
         # amplitude the column contain the amplitude is the related eigenvector.
@@ -326,18 +330,57 @@ class InteractingSystem(QuantumSystem):
                 carry = [next_index_map, next_amp]
                 return carry, None
 
-            idxs = jnp.array([idx for idx in np.ndindex(self.truncated_dim)])
+            def enhanced_scan_func(carry, spin_idx):
+                index_map, amp = carry
+                # get the spin eigenvector
+                spin_eigvec = enhanced_check_data[tuple(spin_idx)]
+                # compute the overlap between spin eigenvector and subsystem eigenvector
+                overlap = jnp.abs(
+                    jnp.dot(truncated_eigvec.T.conj(), spin_eigvec))
+                ix = jnp.argmax(overlap)
+                # ravel index back to the full Hilbertspace
+                # Set the weight of basis ix of all wave functions to be 0
+                # to avoid assigning the same state for multiple times.
+                next_amp = amp.at[:, ix].set(0)
+                next_index_map = index_map.at[tuple(spin_idx)].set(ix)
+                carry = [next_index_map, next_amp]
+                return carry, None
+
+            idxs = [idx for idx in np.ndindex(self.truncated_dim)]
             carry = [ar_index_map, amp]
-            (self.ar_index_map, _), _ = jax.lax.scan(scan_func, carry, idxs)
+
+            if enhanced_check_data is not None:
+                # running the enhanced assignment for computation basis
+                # truncated the subsystem eigenvector to the spin space
+                truncated_eigvec = self.eigvec.reshape(self.truncated_dim + (
+                    -1,))[(slice(0, 2, 1),) * self.subsystem_count].reshape(
+                        2**self.subsystem_count, -1)
+                # setup the scan parameters
+                spin_idxs = []
+                for idx in np.ndindex((2,) * self.subsystem_count):
+                    spin_idxs.append(idx)
+                    # drop the computational basis in idxs
+                    idxs.remove(idx)
+                carry, _ = jax.lax.scan(enhanced_scan_func, carry,
+                                        jnp.array(spin_idxs))
+            # back to the standard assignment
+            if idxs:
+                (self.ar_index_map,
+                 _), _ = jax.lax.scan(scan_func, carry, jnp.array(idxs))
+            else:
+                self.ar_index_map = carry[0]
 
         else:
             # The greedy assignment mode ignores the issue "same state be assigned multiple
             # times", due to the weak coupling of subsystems.
-            self.ar_index_map = jnp.argmax(amp, axis=1).reshape(self.truncated_dim)
+            self.ar_index_map = jnp.argmax(amp,
+                                           axis=1).reshape(self.truncated_dim)
 
         energy_nd = self.eigval[self.ar_index_map]
-
-        return energy_nd
+        if return_eigvec:
+            return energy_nd, jnp.transpose(self.eigvec)[self.ar_index_map]
+        else:
+            return energy_nd
 
     def compute_transform_matrix(self):
         """Computes the matrices related to basis transformation.
@@ -377,10 +420,10 @@ class InteractingSystem(QuantumSystem):
             TODO only return 1 thing; `operator in eigenbasis`, `operator in truncated eigenbasis`
         """
 
-        opt_tensor = identity_wrap(operator, self.subsystem_list,
-                                   **kwargs)
+        opt_tensor = identity_wrap(operator, self.subsystem_list, **kwargs)
         opt_tensor = opt_tensor.full()
         u_product_to_eigen = self.compute_transform_matrix()
-        opt_eig = jnp.conj(u_product_to_eigen).T @ opt_tensor @ u_product_to_eigen
+        opt_eig = jnp.conj(
+            u_product_to_eigen).T @ opt_tensor @ u_product_to_eigen
 
         return opt_eig
