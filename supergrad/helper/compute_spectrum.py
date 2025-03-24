@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from supergrad.helper.helper import Helper
 from supergrad.scgraph.graph import SCGraph
 
@@ -42,15 +44,37 @@ class Spectrum(Helper):
             truncated_dim=self.truncated_dim,
             **self.kwargs)
 
-    def energy_tensor(self, greedy_assign=True):
+    def energy_tensor(self, greedy_assign=True, enhanced_check=False, **kwargs):
         """Return the eigenenergy of quantum system in tensor form.
 
         Args:
             greedy_assign (bool): if True, use greedy assignment mode
                 The greedy assignment mode ignores the issue "same state be assigned
-                multiple times", due to the weak coupling assumption."""
+                multiple times", due to the weak coupling assumption.
+            enhanced_check(bool): if True, use enhanced check mode
+                The enhanced check mode will construct a spin-chain in subspace
+                and do one more assignment, thus the energy map will be more accurate
+                for the computational basis.
+        """
+        if enhanced_check:
+            # create a sub-Hilbertspace for the spin-chain
+            #TODO: using lax stop gradient
+            new_self = Spectrum(self.graph,
+                                truncated_dim=2,
+                                add_random=self.add_random,
+                                share_params=self.share_params,
+                                unify_coupling=self.unify_coupling,
+                                *self.args,
+                                **self.kwargs)
+            _, enhanced_check_data = new_self.energy_tensor(new_self.all_params,
+                                                            greedy_assign,
+                                                            return_eigvec=True)
+        else:
+            enhanced_check_data = None
 
-        return self.hilbertspace.compute_energy_map(greedy_assign)
+        return self.hilbertspace.compute_energy_map(greedy_assign,
+                                                    enhanced_check_data,
+                                                    **kwargs)
 
     def get_model_eigen_basis(self,
                               list_qubit_name,
