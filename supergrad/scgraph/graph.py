@@ -3,6 +3,7 @@ from typing import List
 import warnings
 import jax
 import jax.numpy as jnp
+from jax.tree_util import register_pytree_node_class
 import networkx as nx
 from networkx.classes.reportviews import EdgeView, NodeView
 
@@ -87,6 +88,7 @@ def _parse_pulse_name(q: str, name: str, pulse: str):
     return key
 
 
+@register_pytree_node_class
 class SCGraph(nx.Graph):
     """Graph for storing parameters of qubits, their coupling strength
     and the control pulses.
@@ -100,6 +102,54 @@ class SCGraph(nx.Graph):
         # register the global seed and PRNGKey to support random number.
         self._seed = None
         self.key = None
+
+    def tree_flatten(self):
+        """Specifies a flattening recipe.
+
+        Returns:
+            a pair of an iterable with the children to be flattened recursively,
+            and some opaque auxiliary data to pass back to the unflattening recipe.
+            The auxiliary data is stored in the treedef for use during unflattening.
+            The auxiliary data could be used, e.g., for dictionary keys.
+        """
+        edges = nx.to_dict_of_dicts(self)
+        nodes = list(self.nodes.data())
+        # filter all the string values to auxiliary data
+        str_data = []
+        nodes_data, tree_def = jax.tree.flatten(nodes)
+        pt = 0
+        for i in range(len(nodes_data)):
+            item = nodes_data[i - pt]
+            if isinstance(item, (str, int)):
+                str_data.append((i, item))
+                nodes_data.pop(i - pt)
+                pt += 1
+        return ((edges, nodes_data), (str_data, tree_def, self._seed, self.key))
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Specifies an unflattening recipe.
+
+        Args:
+            aux_data: the opaque data that was specified during flattening of the
+            current treedef.
+            children: the unflattened children
+
+        Returns:
+            a re-constructed object of the registered type, using the specified
+            children and auxiliary data.
+        """
+        str_data, tree_def, seed, key = aux_data
+        edges, nodes_data = children
+        unflat = cls(edges)
+        # reconstruct the nodes data
+        for i, item in str_data:
+            nodes_data.insert(i, item)
+        nodes = jax.tree.unflatten(tree_def, nodes_data)
+        unflat.add_nodes_from(nodes)
+        unflat._seed = seed
+        unflat.key = key
+        return unflat
 
     @property
     def sorted_nodes(self):
