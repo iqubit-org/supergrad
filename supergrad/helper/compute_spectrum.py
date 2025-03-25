@@ -1,4 +1,7 @@
-from copy import deepcopy
+import jax
+import jax.numpy as jnp
+from jax.flatten_util import ravel_pytree
+import numpy as np
 
 from supergrad.helper.helper import Helper
 from supergrad.scgraph.graph import SCGraph
@@ -44,34 +47,74 @@ class Spectrum(Helper):
             truncated_dim=self.truncated_dim,
             **self.kwargs)
 
-    def energy_tensor(self, greedy_assign=True, enhanced_check=False, **kwargs):
+    def energy_tensor(self,
+                      greedy_assign=True,
+                      enhanced_assign=False,
+                      return_enhanced_aux_val=False,
+                      **kwargs):
         """Return the eigenenergy of quantum system in tensor form.
 
         Args:
             greedy_assign (bool): if True, use greedy assignment mode
                 The greedy assignment mode ignores the issue "same state be assigned
                 multiple times", due to the weak coupling assumption.
-            enhanced_check(bool): if True, use enhanced check mode
-                The enhanced check mode will construct a spin-chain in subspace
-                and do one more assignment, thus the energy map will be more accurate
-                for the computational basis.
+            enhanced_assign: use enhanced assignment
+                if 'spin_projective', projective the qudit to the spin system,
+                assign states by the overlap versus the computational basis,
+                thus the energy map will be more accurate for the computational
+                basis.
+                if list of SCGraph, assign the states by the Continuum Adjust
+                Coupling Tracking. Dependent assignments will be performed
+                along the SCGraph list. Each assignment compute the overlap
+                between the current state and the previous basis(using the same
+                dimension of Hilbert space)
+                if ndarray, we assume it's a set of eigenvector in the ndindex order.
+                Ans directly assign the states by computing the overlap versus
+                the eigenvector.
+            return_enhanced_aux_val(bool): if True, return the auxiliary energy
+                tensor value along the giving SCGraph list
         """
-        if isinstance(enhanced_check, SCGraph):
-            # create a qubit chain with larger anharnomic
-            #TODO: using lax stop gradient
-            new_self = Spectrum(enhanced_check,
-                                truncated_dim=self.truncated_dim,
-                                add_random=self.add_random,
-                                share_params=self.share_params,
-                                unify_coupling=self.unify_coupling,
-                                *self.args,
-                                **self.kwargs)
-            _, enhanced_check_data = new_self.energy_tensor(new_self.all_params,
-                                                            greedy_assign,
-                                                            return_eigvec=True)
-        elif enhanced_check:
+        if isinstance(enhanced_assign, list) and all(
+                isinstance(item, SCGraph) for item in enhanced_assign):
+            # assignment along the giving SCGraph list
+            def body(carry, scgraph):
+                sweep_self = Spectrum(unflatten(scgraph),
+                                      truncated_dim=self.truncated_dim,
+                                      add_random=self.add_random,
+                                      share_params=self.share_params,
+                                      unify_coupling=self.unify_coupling,
+                                      *self.args,
+                                      **self.kwargs)
+                sweep_val, carry = sweep_self.energy_tensor(
+                    sweep_self.all_params,
+                    greedy_assign,
+                    enhanced_assign=carry,
+                    return_eigvec=True)
+                return carry, sweep_val
+
+            init_self = Spectrum(enhanced_assign[0],
+                                 truncated_dim=self.truncated_dim,
+                                 add_random=self.add_random,
+                                 share_params=self.share_params,
+                                 unify_coupling=self.unify_coupling,
+                                 *self.args,
+                                 **self.kwargs)
+            aux_val, enhanced_assign_data = init_self.energy_tensor(
+                init_self.all_params, greedy_assign, return_eigvec=True)
+            if enhanced_assign[1:]:
+                # ravel the SCGraph for lax.scan
+                _, unflatten = ravel_pytree(enhanced_assign[0])
+                graph_par = [
+                    ravel_pytree(scg)[0] for scg in enhanced_assign[1:]
+                ]
+                enhanced_assign_data, sweep_aux_val = jax.lax.scan(
+                    body, enhanced_assign_data, jnp.array(graph_par))
+                aux_val = jnp.concatenate((aux_val[jnp.newaxis,
+                                                   Ellipsis], sweep_aux_val))
+            else:
+                aux_val = aux_val[jnp.newaxis, Ellipsis]
+        elif enhanced_assign == "spin_projective":
             # create a sub-Hilbertspace for the spin-chain
-            #TODO: using lax stop gradient
             new_self = Spectrum(self.graph,
                                 truncated_dim=2,
                                 add_random=self.add_random,
@@ -79,15 +122,23 @@ class Spectrum(Helper):
                                 unify_coupling=self.unify_coupling,
                                 *self.args,
                                 **self.kwargs)
-            _, enhanced_check_data = new_self.energy_tensor(new_self.all_params,
-                                                            greedy_assign,
-                                                            return_eigvec=True)
+            _, enhanced_assign_data = new_self.energy_tensor(
+                new_self.all_params, greedy_assign, return_eigvec=True)
+        elif isinstance(enhanced_assign, (jax.Array, np.ndarray)):
+            enhanced_assign_data = enhanced_assign
         else:
-            enhanced_check_data = None
+            enhanced_assign_data = None
 
-        return self.hilbertspace.compute_energy_map(greedy_assign,
-                                                    enhanced_check_data,
-                                                    **kwargs)
+        output = self.hilbertspace.compute_energy_map(greedy_assign,
+                                                      enhanced_assign_data,
+                                                      **kwargs)
+        if return_enhanced_aux_val:
+            assert isinstance(enhanced_assign, list) and all(
+                isinstance(item, SCGraph) for item in enhanced_assign
+            ), "return_enhanced_aux_val only valid if enhanced_assign is a list of SCGraph"
+            return jnp.concatenate((aux_val, output[jnp.newaxis, Ellipsis]))
+        else:
+            return output
 
     def get_model_eigen_basis(self,
                               list_qubit_name,

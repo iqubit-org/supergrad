@@ -1,6 +1,5 @@
 from typing import Callable, Union, List
 import re
-from copy import deepcopy
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -278,7 +277,7 @@ class InteractingSystem(QuantumSystem):
 
     def compute_energy_map(self,
                            greedy_assign=True,
-                           enhanced_check_data=None,
+                           enhanced_assign_data=None,
                            return_eigvec=False) -> jnp.ndarray:
         """
         Compute the energy of the whole system in the dressed indices,
@@ -298,7 +297,7 @@ class InteractingSystem(QuantumSystem):
             greedy_assign(bool): if True, use greedy assignment mode
                 TODO The greedy assignment mode ignores the issue "same state be assigned
                 multiple times", due to the weak coupling of subsystems.
-            enhanced_check_data(array): if None, do not use enhanced check mode.
+            enhanced_assign_data(array): if None, do not use enhanced check mode.
                 if 2d-array, use enhanced check mode, the column should be in
                 the flat indices order of energy tensor.
                 The enhanced check mode will construct a spin-chain in subspace
@@ -306,8 +305,8 @@ class InteractingSystem(QuantumSystem):
                 for the computational basis.
             return_eigvec(bool): if True, return the eigenvectors of the system.
         """
-        assert enhanced_check_data is None or not greedy_assign, (
-            "enhanced_check_data can only be used in standard mode.")
+        assert enhanced_assign_data is None or not greedy_assign, (
+            "enhanced_assign_data can only be used in standard mode.")
         self.eigval, self.eigvec = self._calc_eigsys()
         # Choose the row map to [i, j, ...] state, and find the maximum
         # amplitude the column contain the amplitude is the related eigenvector.
@@ -333,7 +332,7 @@ class InteractingSystem(QuantumSystem):
             def enhanced_scan_func(carry, spin_idx):
                 index_map, amp, truncated_eigvec = carry
                 # get the spin eigenvector
-                spin_eigvec = enhanced_check_data[tuple(spin_idx)]
+                spin_eigvec = enhanced_assign_data[tuple(spin_idx)]
                 # compute the overlap between spin eigenvector and subsystem eigenvector
                 overlap = jnp.abs(
                     jnp.dot(truncated_eigvec.T.conj(), spin_eigvec))
@@ -350,8 +349,8 @@ class InteractingSystem(QuantumSystem):
             idxs = [idx for idx in np.ndindex(self.truncated_dim)]
             carry = [ar_index_map, amp]
 
-            if enhanced_check_data is not None:
-                enhanced_shape = enhanced_check_data.shape[:-1]
+            if enhanced_assign_data is not None:
+                enhanced_shape = enhanced_assign_data.shape[:-1]
                 # running the enhanced assignment for computation basis
                 # truncated the subsystem eigenvector to the spin space
                 truncated_eigvec = self.eigvec.reshape(
