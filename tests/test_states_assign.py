@@ -113,7 +113,7 @@ def _test_grad_compability(mode):
 
 def test_non_reassignment():
     val_standard = _test_grad_compability('standard')
-    val_greedy = _test_grad_compability('greedy')
+    _ = _test_grad_compability('greedy')
     val_eigvec = _test_grad_compability('enhanced_eigvec')
     val_continuum = _test_grad_compability('enhanced_continuum')
     # assert jnp.allclose(val_standard, val_greedy)
