@@ -78,23 +78,6 @@ def create_graph_vs_coupling(params: Params_VariableEJ):
     return scg
 
 
-@jax.jit
-def test_jax_compability(ec):
-    twoQ = create_graph_vs_coupling(
-        Params_VariableEJ(ec, [12.5, 13.0], 20e-3, ng=0.01))
-    refQ = create_graph_vs_coupling(
-        Params_VariableEJ(ec, [12.5, 13.0], 0e-3, ng=0.01))
-    spec_twoq = Spectrum(twoQ)
-    val = spec_twoq.energy_tensor(spec_twoq.all_params,
-                                  greedy_assign=False,
-                                  enhanced_assign=[refQ, refQ],
-                                  return_enhanced_aux_val=True)
-    return val
-
-
-test_jax_compability(250e-3)
-
-
 # %%
 @partial(jax.vmap, in_axes=(0, None, None))
 def get_energies(coupling, ej_array, ec):
@@ -151,21 +134,8 @@ ej_array = ej_mean + ej_var * jax.random.normal(key, n_transmons)
 ec = 250e-3
 
 t_array = jnp.linspace(0e-3, 50e-3, 50)
-
-
-# energy_4q_array = get_energies_anharmonic(t_array, ej_array, ec, 3)
-# print(energy_4q_array.shape)
-@jax.jit
-@jax.value_and_grad
-def test_grad_compability(ec):
-    # return jnp.mean(get_energies_anharmonic(t_array, ej_array, ec))
-    return jnp.mean(get_energies_continuum(t_array, ej_array, ec))
-
-
-test_grad_compability(250e-3)
 # %%
 # %matplotlib widget
-import mplcursors
 
 
 def plot_spectra(energy_array, t_array, show_computational_basis=True):
@@ -190,7 +160,7 @@ def plot_spectra(energy_array, t_array, show_computational_basis=True):
         plt.ylim(9.0, 10.0)
 
     # Create an interactive cursor
-    cursor = mplcursors.cursor(lines)
+    _ = mplcursors.cursor(lines)
 
 
 def plot_spectra_vs_coupling(enhanced_mode=0, show_computational_basis=True):

@@ -141,7 +141,7 @@ class SCGraph(nx.Graph):
         """
         str_data, tree_def, seed, key = aux_data
         edges, nodes_data = children
-        unflat = cls(edges)
+        unflat = cls(incoming_graph_data=edges)
         # reconstruct the nodes data
         for i, item in str_data:
             nodes_data.insert(i, item)
