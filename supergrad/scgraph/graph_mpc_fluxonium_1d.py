@@ -2,12 +2,14 @@ from copy import deepcopy
 from collections import deque
 
 import numpy as np
+from jax.tree_util import register_pytree_node_class
 import networkx as nx
 
 from supergrad.scgraph.graph import SCGraph
 from supergrad.helper.compute_spectrum import Spectrum
 
 
+@register_pytree_node_class
 class MPCFluxonium1D(SCGraph):
     """The general graph for 1d multipath coupling fluxonium chain. One could
     select a 3-frequency pattern and decide the number of qubits in the chain.
@@ -21,8 +23,8 @@ class MPCFluxonium1D(SCGraph):
             Defaults to None.
     """
 
-    def __init__(self, n_qubit: int = None, periodic=None, seed=None):
-        super().__init__()
+    def __init__(self, n_qubit: int = None, periodic=None, seed=None, **kwargs):
+        super().__init__(**kwargs)
 
         # device parameters for frequency pattern
         fluxonium_type_1 = {
