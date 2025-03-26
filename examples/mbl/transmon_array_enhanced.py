@@ -71,7 +71,7 @@ def create_graph_vs_coupling(params: Params_VariableEJ):
 
     # edges represent two-qubit interactions
     for i in range(len(params.ej_array) - 1):
-        scg.add_edge(f"q{i}", f"q{i+1}",
+        scg.add_edge(f"q{i}", f"q{i + 1}",
                      **{'capacitive_coupling': {
                          'strength': params.coupling
                      }})
