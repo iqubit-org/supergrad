@@ -117,14 +117,14 @@ class SCGraph(nx.Graph):
         # filter all the string values to auxiliary data
         str_data = []
         nodes_data, tree_def = jax.tree.flatten(nodes)
-        pt = 0
-        for i in range(len(nodes_data)):
-            item = nodes_data[i - pt]
+        new_nodes_data = []
+        for i, item in enumerate(nodes_data):
             if isinstance(item, (str, int)):
                 str_data.append((i, item))
-                nodes_data.pop(i - pt)
-                pt += 1
-        return ((edges, nodes_data), (str_data, tree_def, self._seed, self.key))
+            else:
+                new_nodes_data.append(item)
+        return ((edges, new_nodes_data), (str_data, tree_def, self._seed,
+                                          self.key))
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):

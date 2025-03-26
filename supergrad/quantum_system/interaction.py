@@ -306,7 +306,7 @@ class InteractingSystem(QuantumSystem):
             return_eigvec(bool): if True, return the eigenvectors of the system.
         """
         assert enhanced_assign_data is None or not greedy_assign, (
-            "enhanced_assign_data can only be used in standard mode.")
+            "enhanced_assign_data can only be used in non-greedy mode.")
         self.eigval, self.eigvec = self._calc_eigsys()
         # Choose the row map to [i, j, ...] state, and find the maximum
         # amplitude the column contain the amplitude is the related eigenvector.
@@ -334,11 +334,10 @@ class InteractingSystem(QuantumSystem):
                 # get the spin eigenvector
                 spin_eigvec = enhanced_assign_data[tuple(spin_idx)]
                 # compute the overlap between spin eigenvector and subsystem eigenvector
-                overlap = jnp.abs(
-                    jnp.dot(truncated_eigvec.T.conj(), spin_eigvec))
+                overlap = jnp.abs(truncated_eigvec.T.conj() @ spin_eigvec)
                 ix = jnp.argmax(overlap)
-                # ravel index back to the full Hilbertspace
-                # Set the weight of basis ix of all wave functions to be 0
+                # ravel index back to the full Hilbert space
+                # Set the weight of the ix-th wave function to be 0
                 # to avoid assigning the same state for multiple times.
                 next_truncated_eigvec = truncated_eigvec.at[:, ix].set(0)
                 next_amp = amp.at[:, ix].set(0)
