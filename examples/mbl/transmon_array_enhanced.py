@@ -1,10 +1,8 @@
 # %%
 from functools import partial
 import numpy as np
-import networkx as nx
 import jax
 import jax.numpy as jnp
-from jax.flatten_util import ravel_pytree
 import mplcursors
 import matplotlib.pyplot as plt
 
@@ -48,25 +46,6 @@ def create_transmon(params):
     return transmon
 
 
-class SingleTransmon(SCGraph):
-
-    def __init__(self, transmon_0):
-        super().__init__()
-
-        # nodes represent qubits
-        self.add_node("q0", **transmon_0)
-
-    def get_energies(self):
-        spec_1q = Spectrum(self,
-                           truncated_dim=truncated_dim,
-                           share_params=False,
-                           unify_coupling=False)
-        # disable share_params because it only works for the back propagation
-        # disable "unify_coupling" and direct assign the coupling strength by the edge
-        params_1q = spec_1q.all_params
-        return spec_1q.energy_tensor(params_1q, greedy_assign=False)
-
-
 # %% [markdown]
 # ## Multiple Transmon Qubits in a Chain
 
@@ -99,7 +78,7 @@ def create_graph_vs_coupling(params: Params_VariableEJ):
     return scg
 
 
-# @jax.jit
+@jax.jit
 def test_jax_compability(ec):
     twoQ = create_graph_vs_coupling(
         Params_VariableEJ(ec, [12.5, 13.0], 20e-3, ng=0.01))
@@ -113,7 +92,9 @@ def test_jax_compability(ec):
     return val
 
 
-# test_jax_compability(250e-3)
+test_jax_compability(250e-3)
+
+
 # %%
 @partial(jax.vmap, in_axes=(0, None, None))
 def get_energies(coupling, ej_array, ec):
@@ -177,10 +158,11 @@ t_array = jnp.linspace(0e-3, 50e-3, 50)
 @jax.jit
 @jax.value_and_grad
 def test_grad_compability(ec):
-    return jnp.mean(get_energies_anharmonic(t_array, ej_array, ec))
+    # return jnp.mean(get_energies_anharmonic(t_array, ej_array, ec))
+    return jnp.mean(get_energies_continuum(t_array, ej_array, ec))
 
 
-# test_grad_compability(250e-3)
+test_grad_compability(250e-3)
 # %%
 # %matplotlib widget
 import mplcursors
@@ -225,15 +207,15 @@ def plot_spectra_vs_coupling(enhanced_mode=0, show_computational_basis=True):
 
 
 # %%
-energy_ar = plot_spectra_vs_coupling(0, None)
+energy_ar = plot_spectra_vs_coupling(0, False)
 plt.title('Spin projective assignment')
 plt.show()
 # %%
-energy_ar = plot_spectra_vs_coupling(1, None)
+energy_ar = plot_spectra_vs_coupling(1, False)
 plt.title('Anharmonicity adaptive assignment')
 plt.show()
 # %%
-energy_ar = plot_spectra_vs_coupling(2, None)
+energy_ar = plot_spectra_vs_coupling(2, False)
 plt.title('Continuum adjust couping assignment')
 plt.show()
 
