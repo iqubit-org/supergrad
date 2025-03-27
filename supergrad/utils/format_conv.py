@@ -82,7 +82,7 @@ def convert_device_array(x):
     This is for convert parameters to json compatible format.
     """
 
-    if x.size == 1:
+    if len(x.shape) == 0:
         return float(x)
     else:
         return x.tolist()
