@@ -73,6 +73,7 @@ class PulseConstant(PulseBase):
         t_plateau: the holding time of the plateau of the waveform
         length: the length of pulse shape
     """
+
     def __init__(
             self,
             length=False,  # unused argument
@@ -90,7 +91,6 @@ class PulseConstant(PulseBase):
         t_pulse2 = -(t - self.delay - self.length)
         shape = jnp.where(t_pulse1 < 0, 0, jnp.where(t_pulse2 < 0, 0, 1))
         return shape * self.amp
-
 
 
 class PulseTrapezoid(PulseBase):
@@ -179,12 +179,64 @@ class PulseCosineRamping(PulseBase):
     def create_envelope_pulse(self, t, args={}):
         t_pulse = t - self.delay
         pulse_1 = (1 - jnp.cos(jnp.pi * t_pulse / self.t_ramp)) / 2 * (
-                t_pulse < self.t_ramp)
+            t_pulse < self.t_ramp)
         pulse_2 = (t_pulse >= self.t_ramp) & (t_pulse
                                               <= self.t_ramp + self.t_plateau)
         pulse_3 = (1 - jnp.cos(jnp.pi *
                                (self.length - t_pulse) / self.t_ramp)) / 2 * (
-                          t_pulse > self.t_ramp + self.t_plateau)
+            t_pulse > self.t_ramp + self.t_plateau)
+        shape = self.amp * (pulse_1 + pulse_2 + pulse_3)
+
+        return shape * ((t_pulse >= 0) & (t_pulse <= 0 + self.length))
+
+
+class PulseCoshRamping(PulseBase):
+    """A flat-top pulse with cosh ramping at both ends. This ramp rise fast at start and slower at the top.
+
+    Args:
+        length: the length of pulse
+        amp: the amplitude of pulse
+        delay: time delay for waiting other gate operations
+        modulate_wave(bool): True for generate modulated sine wave
+        name: module name
+
+    Attributes:
+        amp: max amplitude of the flat-top
+        steepness: the steepness of the ramp
+        t_ramp: time of the rising and falling edges
+        t_plateau: the holding time of the plateau of the waveform
+        length: the length of pulse shape
+    """
+
+    def __init__(
+            self,
+            length=False,  # unused argument
+            amp=None,
+            delay=0,
+            modulate_wave=False,
+            omega_d=0,
+            phase=0,
+            t_ramp=0,
+            t_plateau=0,
+            steepness=0,
+            name: str = 'pulse_rampcosh'):
+        super().__init__(length=length, amp=amp, delay=delay, modulate_wave=modulate_wave, name=name, omega_d=omega_d,
+                         phase=phase)
+
+        # construct activation function
+        self.t_ramp = t_ramp  # time for rising and falling edge
+        self.t_plateau = t_plateau
+        self.length = self.t_plateau + 2 * self.t_ramp
+        self.steepness = steepness
+
+    def create_envelope_pulse(self, t, args={}):
+        c = jnp.cosh(-self.steepness / 2)
+        d = self.steepness / 2 / self.t_ramp
+
+        t_pulse = t - self.delay
+        pulse_1 = (c - jnp.cosh(d * (t_pulse - self.t_ramp))) / (c-1) * (t_pulse < self.t_ramp)
+        pulse_2 = (t_pulse >= self.t_ramp) & (t_pulse <= self.t_ramp + self.t_plateau)
+        pulse_3 = (c - jnp.cosh(d * (t_pulse - self.t_ramp - self.t_plateau))) / (c-1) * (t_pulse > self.t_ramp + self.t_plateau)
         shape = self.amp * (pulse_1 + pulse_2 + pulse_3)
 
         return shape * ((t_pulse >= 0) & (t_pulse <= 0 + self.length))
@@ -502,6 +554,7 @@ class PulseWithDRAG(PulseBase):
                                                      self.phase)
         return output * ((t_pulse >= 0) & (t_pulse <= 0 + self.length))
 
+
 class PulseSine(PulseBase):
     """Creates sine style pulse from phase 0 to 2pi,
 
@@ -576,7 +629,6 @@ if __name__ == '__main__':
         draw(pulse, ts, 'pulse')
         draw(pulse, ts, 'envelope')
         plt.show()
-
 
     plot_pulse({
         'amp': jnp.array(0.5),

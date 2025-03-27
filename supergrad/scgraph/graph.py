@@ -7,7 +7,7 @@ import networkx as nx
 from networkx.classes.reportviews import EdgeView, NodeView
 
 from supergrad.time_evolution.pulseshape import (PulseCosine, PulseTrapezoid,
-                                                 PulseCosineRamping, PulseTanh,
+                                                 PulseCosineRamping, PulseCoshRamping, PulseTanh,
                                                  PulseErf, PulseGaussian, PulseSine, PulseConstant)
 from supergrad.utils.utility import identity_wrap
 from supergrad.utils.format_conv import deep_partial_dict, deep_update_dict
@@ -32,6 +32,7 @@ pulse_shape_dict = {
     'trapezoid': PulseTrapezoid,
     'cos': PulseCosine,
     'rampcos': PulseCosineRamping,
+    'rampcosh': PulseCoshRamping,
     'tanh': PulseTanh,
     'erf': PulseErf,
     'gaussian': PulseGaussian,
