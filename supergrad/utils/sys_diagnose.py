@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from supergrad.quantum_system.artificial_atom import Fluxonium
 
 from qutip import Qobj
-from qutip.qobj import ptrace
+from qutip.core.qobj import ptrace
 from qutip.entropy import entropy_vn
 
 
@@ -44,13 +44,10 @@ def walsh_transform(energy_nd):
     ]
     # calculate the coefficients of the tau-Hamiltonian
     coeff_tau = []
-    for bitstring in bitstrings:
-        temp_sum = 0
-        # Walsh-Hadamard transform
-        for transform_b in bitstrings:
-            temp_sum += (-1)**(np.array(bitstring) @ np.array(transform_b)
-                               ) * trunc_energy_nd[transform_b]
-        coeff_tau.append(temp_sum / 2**energy_nd.ndim)
+    bitstrings_array = np.array(bitstrings)
+    transform_matrix = (-1)**(bitstrings_array @ bitstrings_array.T)
+    trunc_energy_flat = trunc_energy_nd.flatten()
+    coeff_tau = (transform_matrix @ trunc_energy_flat) / 2**energy_nd.ndim
     coeff_tau = np.abs(np.array(coeff_tau))
     # sort the coefficient
     sort_idx = np.argsort(-coeff_tau)  # in descending order
@@ -83,13 +80,16 @@ def plot_walsh_transform(coeff, bitstring):
 
     plt.scatter(weight_2_idx_lst,
                 weight_2_coeff_lst,
-                label=r'weight $w(\vec{b}) = 2$', s=60)
+                label=r'weight $w(\vec{b}) = 2$',
+                s=60)
     plt.scatter(weight_3_idx_lst,
                 weight_3_coeff_lst,
-                label=r'weight $w(\vec{b}) = 3$', s=60)
+                label=r'weight $w(\vec{b}) = 3$',
+                s=60)
     plt.scatter(weight_other_idx_lst,
                 weight_other_coeff_lst,
-                label=r'weight $w(\vec{b}) > 3$', s=60)
+                label=r'weight $w(\vec{b}) > 3$',
+                s=60)
     plt.yscale('log')
     plt.xlabel(r'Bitstring $\vec{b}$')
     plt.xticks([])
