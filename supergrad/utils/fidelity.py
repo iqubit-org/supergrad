@@ -5,7 +5,7 @@ from numpy import pi
 import jax
 import jax.numpy as jnp
 import jaxopt
-import haiku as hk
+#import haiku as hk
 from numpy import ndarray
 from rich import print as rprint
 import matplotlib.pyplot as plt
@@ -378,8 +378,7 @@ def estimate_vz(
     Returns:
         a dictionary of parameters with
     """
-    u_computed = evo.eigen_basis(
-        hk.data_structures.merge(evo.all_params, params), transform_matrix)
+    u_computed = evo.eigen_basis(params, transform_matrix)
 
     if options is None:
         options = {}
@@ -425,8 +424,7 @@ def estimate_vsq(
     Returns:
         a dictionary of parameters with
     """
-    u_computed = evo.eigen_basis(
-        hk.data_structures.merge(evo.all_params, params), transform_matrix)
+    u_computed = evo.eigen_basis(params, transform_matrix)
 
     if options is None:
         options = {}
