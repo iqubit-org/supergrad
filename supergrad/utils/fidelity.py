@@ -109,17 +109,32 @@ def conv_sq_u_to_angles(u, canonical: bool = True):
         expphig_sin_theta = u[0, 1] / (1j * expmphi)
         phig = jnp.angle(expphig_sin_theta ** 2) / 2
         expphig = jnp.cos(phig) + 1j * jnp.sin(phig)
-        sin_theta = expphig_sin_theta / expphig
-        theta = jnp.arcsin(sin_theta.real)
+        sin_theta = (expphig_sin_theta / expphig).real
+        if jnp.abs(sin_theta) > 1:
+            sin_theta /= jnp.abs(sin_theta)
+        theta = jnp.arcsin(sin_theta)
     else:
         expphig_cos_gamma = (u[1, 1] + u[0, 0]) / 2
         phig = jnp.angle(expphig_cos_gamma ** 2) / 2
         expphig = jnp.cos(phig) + 1j * jnp.sin(phig)
         cos_gamma = expphig_cos_gamma / expphig
         gamma = jnp.arccos(cos_gamma.real)
-        sin_theta = u[0, 1] / (expphig * 1j * jnp.sin(gamma) * expmphi)
-        cos_theta = (u[0, 0] - u[1, 1]) / (2j * expphig * jnp.sin(gamma))
-        theta = jnp.atan2(sin_theta.real, cos_theta.real)
+
+        # Close to zero, cannot be used later in division
+        # No theta information
+        if jnp.sin(gamma) < tol:
+            theta = 0.0
+        else:
+            cos_theta = ((u[0, 0] - u[1, 1]) / (2j * expphig * jnp.sin(gamma))).real
+            if jnp.abs(cos_theta) > 1:
+                cos_theta /= jnp.abs(cos_theta)
+            if jnp.abs(u[0,1]) < tol:
+                theta = jnp.arccos(cos_theta)
+            else:
+                sin_theta = (u[0, 1] / (expphig * 1j * jnp.sin(gamma) * expmphi)).real
+                if jnp.abs(sin_theta) > 1:
+                    sin_theta /= jnp.abs(sin_theta)
+                theta = jnp.atan2(sin_theta.real, cos_theta.real)
 
     return jnp.array([theta, gamma, phi, phig])
 
