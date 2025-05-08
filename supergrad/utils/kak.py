@@ -163,7 +163,7 @@ def kak1_decomposition(u: jax.Array, all_positive: bool = True, canonical: bool 
     return k, a1, a0, b1, b0
 
 
-@partial(jax.jit, static_argnums=[0, 1], donate_argnames=["k", "a1", "a0", "b1", "b0"])
+@partial(jax.jit, static_argnums=[0], donate_argnames=["k", "a1", "a0", "b1", "b0"])
 def class_vector_int_shift(ix: int, v: jax.Array, k: jax.Array, a1: jax.Array, a0: jax.Array, b1: jax.Array,
                            b0: jax.Array):
     """Shift the class vector (int form) by pi/2.
@@ -287,12 +287,19 @@ def canonicalize_kak1_with_1q(k0: jax.Array, a1: jax.Array, a0: jax.Array, b1: j
     for ix in range(3):
         k, a1, a0, b1, b0 = class_vector_int_shift(ix, shift[ix] * -1, k, a1, a0, b1, b0)
 
-    def keep_swap(ix1, ix2, k, a1, a0, b1, b0):
+    def keep_swap(k, a1, a0, b1, b0):
+        return k, a1, a0, b1, b0
+
+
+    def keep(k, a1, a0, b1, b0):
         return k, a1, a0, b1, b0
 
     # Swap to let kx>ky>kz
     for ix1, ix2 in [(0, 1), (1, 2), (0, 1)]:
-        k, a1, a0, b1, b0 = jax.lax.cond(k[ix1] < k[ix2], class_vector_int_swap, keep_swap, ix1, ix2, k, a1, a0, b1, b0)
+        def class_vector_int_swap_ix(k, a1, a0, b1, b0):
+            return class_vector_int_swap(ix1, ix2, k, a1, a0, b1, b0)
+
+        k, a1, a0, b1, b0 = jax.lax.cond(k[ix1] < k[ix2], class_vector_int_swap_ix, keep_swap, k, a1, a0, b1, b0)
 
     def swap_and_reverse_and_shift(k, a1, a0, b1, b0):
         k, a1, a0, b1, b0 = class_vector_int_swap(0, 1, k, a1, a0, b1, b0)
@@ -301,13 +308,16 @@ def canonicalize_kak1_with_1q(k0: jax.Array, a1: jax.Array, a0: jax.Array, b1: j
         k, a1, a0, b1, b0 = class_vector_int_shift(1, 1, k, a1, a0, b1, b0)
         return k, a1, a0, b1, b0
 
-    def keep(k, a1, a0, b1, b0):
-        return k, a1, a0, b1, b0
+    def class_vector_int_swap_01(k, a1, a0, b1, b0):
+        return class_vector_int_swap(0, 1, k, a1, a0, b1, b0)
+
+    def class_vector_int_swap_12(k, a1, a0, b1, b0):
+        return class_vector_int_swap(1, 2, k, a1, a0, b1, b0)
 
     # Reverse if too large, sort again
     k, a1, a0, b1, b0 = jax.lax.cond(k[0] + k[1] > 1, swap_and_reverse_and_shift, keep, k, a1, a0, b1, b0)
-    k, a1, a0, b1, b0 = jax.lax.cond(k[1] < k[2], class_vector_int_swap, keep_swap, 1, 2, k, a1, a0, b1, b0)
-    k, a1, a0, b1, b0 = jax.lax.cond(k[0] < k[1], class_vector_int_swap, keep_swap, 0, 1, k, a1, a0, b1, b0)
+    k, a1, a0, b1, b0 = jax.lax.cond(k[1] < k[2], class_vector_int_swap_12, keep_swap, k, a1, a0, b1, b0)
+    k, a1, a0, b1, b0 = jax.lax.cond(k[0] < k[1], class_vector_int_swap_01, keep_swap, k, a1, a0, b1, b0)
 
     def reverse_and_shift(k, a1, a0, b1, b0):
         k, a1, a0, b1, b0 = class_vector_int_reverse(0, 2, k, a1, a0, b1, b0)
@@ -317,7 +327,7 @@ def canonicalize_kak1_with_1q(k0: jax.Array, a1: jax.Array, a0: jax.Array, b1: j
     # Special case
     k, a1, a0, b1, b0 = jax.lax.cond(jnp.logical_and(k[0] > 0.5, jnp.logical_or(k[2] == 0, not all_positive)),
                                      reverse_and_shift, keep, k, a1, a0, b1, b0)
-    k, a1, a0, b1, b0 = jax.lax.cond(k[0] < k[1], class_vector_int_swap, keep_swap, 0, 1, k, a1, a0, b1, b0)
+    k, a1, a0, b1, b0 = jax.lax.cond(k[0] < k[1], class_vector_int_swap_01, keep_swap, k, a1, a0, b1, b0)
 
     return k * (pi / 2), a1, a0, b1, b0
 
