@@ -223,26 +223,26 @@ def loss_kl_div(xs, ys, exp_array, plot=False):
 
 @hk.without_apply_rng
 @hk.transform
-def loss_kl_div_res_transmission(xs, ys, exp_array, plot=False):
+def loss_kl_div_res_transmission(xs, ys, exp_array, num_photon=1, plot=False):
     """Loss function for fit qubit spectra by the Kullback-Leibler divergence.
 
     Args:
         data: dateset from experiment.
     """
     # Normalize
-    exp_array = jnp.abs(10 * jnp.log10(exp_array))  # unit in db
-    data_exp = jnp.nan_to_num(exp_array, nan=jnp.nanmin(exp_array))
-    data_exp = jnp.abs(data_exp - jnp.nanmean(data_exp, axis=1, keepdims=True))
-    data_exp = data_exp / jnp.nansum(data_exp)
+    data_exp = jnp.abs(exp_array)
+    data_exp = data_exp / jnp.nansum(data_exp, axis=1, keepdims=True)
+    data_exp = jnp.nan_to_num(data_exp, nan=1e-4)
     if plot:
         fig, axs = plt.subplots(1, 2, figsize=(10, 5))
-        axs[0].pcolormesh(xs, ys, data_exp.T)
-        axs[0].set_title(r'$\mathbf{P}(\varepsilon,b)$')
+        ix0 = axs[0].pcolormesh(xs, ys, data_exp.T)
+        plt.colorbar(ix0)
+        axs[0].set_title(r'$Exp: \mathbf{P}(\varepsilon,b)$')
 
     # convert bias to phi_ext/phi_0
     phi_list, ys = wrapper_phi_freq(xs, ys)
 
-    spec_out = _cal_transmission_vs_phi(phi_list, 1)
+    spec_out = _cal_transmission_vs_phi(phi_list, num_photon)
     peak_list = spec_out[:, 0]
 
     # set a bandwidth
@@ -254,13 +254,22 @@ def loss_kl_div_res_transmission(xs, ys, exp_array, plot=False):
     sim_data = jnp.asarray(sim_data)
 
     # add noise
+    sim_data = -sim_data + jnp.nanmax(sim_data, axis=1, keepdims=True)
     sim_data += noise
-    sim_data = sim_data / jnp.sum(sim_data)
+    sim_data = sim_data / jnp.nansum(sim_data, axis=1, keepdims=True)
 
     # plot
     if plot:
-        axs[1].pcolormesh(xs, ys, sim_data.T)
-        axs[1].set_title(r'$\mathbf{Q}(\varepsilon,\varphi)$')
+        # plot the peak list to exp figure
+        # remove out of range peak
+        peak_list = jnp.where(peak_list > jnp.min(ys), peak_list, jnp.nan)
+        peak_list = jnp.where(peak_list < jnp.max(ys), peak_list, jnp.nan)
+        axs[0].plot(xs, peak_list * 1e9, '.', color='red', label='sim_peak')
+        # axs[1].plot(xs, peak_list)
+        ix1 = axs[1].pcolormesh(xs, ys, sim_data.T)
+        axs[1].set_title(r'Sim: $\mathbf{Q}(\varepsilon,\varphi)$')
+        plt.colorbar(ix1)
+        axs[0].legend()
         plt.show()
     # calculate kl div
     return jnp.nansum(data_exp * jnp.log(data_exp / sim_data))
@@ -272,7 +281,8 @@ def loss_fit_transmission(bias_list,
                           freq_list,
                           qubit_level,
                           num_photon,
-                          periodic=True):
+                          periodic=True,
+                          plot=False):
     """Loss function for fit cavity-qubit transmission spectrum.
 
     Args:
@@ -283,10 +293,18 @@ def loss_fit_transmission(bias_list,
         periodic (bool): Using periodic boundary condition of phi
             when the target phi is beyond the phi basis range.
     """
+    if plot:
+        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+        axs[0].plot(bias_list, freq_list)
+        axs[0].set_title('Exp')
     phi_list, freq_list = wrapper_phi_freq(bias_list, freq_list, periodic)
 
     spec_out = _cal_transmission_vs_phi(phi_list, num_photon)
     sim_freq_list = spec_out[:, qubit_level]
+    if plot:
+        axs[1].plot(bias_list, sim_freq_list)
+        axs[1].set_title('Sim')
+        plt.show()
     # use mean square error with l2-norm
     # norm = jnp.linalg.norm(freq_list - jnp.mean(freq_list))
 
