@@ -1,3 +1,4 @@
+import jax
 import numpy as np
 import jax.numpy as jnp
 
@@ -57,6 +58,35 @@ class Qudit(QuantumSystem):
         return self.phi
 
 
+def conv_charge_phase_input(v) -> jax.Array:
+    """Converts the input 1/2/3D data to charge or phase matrix.
+
+        The n and phi input can be 1/2/3D, 
+
+        * input 1D is real 1D
+        * input 2D is complex 1D
+        * input 3D is complex 2D.
+
+        1D data is 1 off-diagonal terms in the matrix.
+
+    Args:
+        v: the 1/2/3D input
+
+    Returns:
+        jax Array 2D matrix
+    """
+    if isinstance(v, np.ndarray) or isinstance(v, jax.Array):
+        return v
+    n = jnp.array(v)
+    if len(n.shape) >= 2:
+        n = n[..., 0] + 1j * n[..., 1]
+
+    if len(n.shape) == 1:
+        n = jnp.diag(n, 1)
+        n = n + n.conj().T
+    return n
+
+
 class StandardNonlinearOscillator(Qudit):
     """Class for a standard nonlinear osciallar system with N-levels and fixed matrix elements.
     """
@@ -72,25 +102,34 @@ class StandardNonlinearOscillator(Qudit):
 
         The charge/phase matrix are non-zero only between `i-i,i` levels.
 
+        The n and phi input can be 1/2/3D, 1D is real 1D, 2D is complex 1D, 3D is complex 2D.
+
         Args:
             f: the frequency of each level (except 0), size (N-1)
-            n: the charge matrix, offset 1 from the main diagonal, size (N-1)
-            phi: the phase matrix, offset 1 from the main diagonal, size (N-1)
-                by default it is -i*n, so phi is Pauli Y when n is Pauli X (by default)
+            n: the charge matrix,can be a complete matrix, or a 1D array as offset 1 from the main diagonal, size (N-1)
+            phi: the phase matrix, can be a complete matrix, or a 1D array as offset 1 from the main diagonal, size (N-1)
+                by default, phi is Pauli Y when n is Pauli X
             name: the system name
         """
-        assert f.size == n.size
+        # Convert 2D list of 2-Tuples (complex) to array
+        n = conv_charge_phase_input(n)
+
         if phi is not None:
-            assert f.size == phi.size
+            phi = conv_charge_phase_input(phi)
+
+        dim = f.size + 1
+
+        assert dim == n.shape[0]
+
+        if phi is not None:
+            assert dim == phi.shape[0]
 
         QuantumSystem.__init__(self, name=name)
         self.truncated_dim = f.size + 1
         self.f = jnp.concatenate([jnp.array([0]), f])
-        self.n = jnp.diag(n, 1)
-        self.n = self.n + self.n.conj().T
+        self.n = n
         if phi is None:
-            self.phi = -1j * self.n
+            self.phi = jnp.tril(n) -1j * jnp.triu(n).T
         else:
-            self.phi = jnp.diag(phi, 1)
-            self.phi = self.phi + self.phi.conj().T
+            self.phi = jnp.array(phi)
         self.h = jnp.diag(f)
