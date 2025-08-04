@@ -266,7 +266,7 @@ class Evolve(Helper):
             self.tlist = tlist
         # Change astep as it is used between each steps
         options = self.options.copy()
-        options["astep"] = options["astep"] // (len(self.tlist) - 1)
+        options["astep"] = options["astep"] // (len(self.tlist) - 1) + 1
         res = sesolve(ham,
                       psi_list,
                       self.tlist,
@@ -304,7 +304,7 @@ class Evolve(Helper):
             self.tlist = tlist
         # Change astep as it is used between each steps
         options = self.options.copy()
-        options["astep"] = options["astep"] // (len(self.tlist) - 1)
+        options["astep"] = options["astep"] // (len(self.tlist) - 1) + 1
         res = sesolve(ham,
                       psi_list,
                       self.tlist,
