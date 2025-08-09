@@ -94,7 +94,6 @@ class CircuitLCJ(QuantumSystem):
             self.set_phi_basis(phi_max=phi_max, num_phi=num_basis)
         if self.basis in ("phase", "charge"):
             self.set_charge_basis(n_max=n_max, num_n=num_basis)
-        if self.basis in ("phase", "charge"):
             self.set_n_phi_transform()
 
         # fix phase

@@ -600,7 +600,7 @@ class SCGraph(nx.Graph):
                             list(edge_type_dict.values())[0])
                     else:
                         EdgeView(self)[edge].update(edge_type_dict[edge_type])
-                except KeyError and IndexError:
+                except (KeyError, IndexError):
                     warnings.warn(
                         f'The parameters dictionary does not contain edges '
                         f'type {edge_type}, keeping edge {edge} unchanged.')
