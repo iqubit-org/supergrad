@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from functools import partial
 import numpy as np
 import jax
@@ -87,7 +88,7 @@ def test_simultaneous_x_state_grad_lcam_multi_gpu(gpu_count=8):
         return 1 - distributed_state_fidelity(target_state, output)
     
     print("Running state evolution with multi-GPU sharding...")
-    start_time = jax.time.time()
+    start_time = time.time()
     
     # Run the computation
     result = infidelity(evo.all_params)
@@ -95,7 +96,7 @@ def test_simultaneous_x_state_grad_lcam_multi_gpu(gpu_count=8):
     # Wait for completion
     jax.block_until_ready(result)
     
-    end_time = jax.time.time()
+    end_time = time.time()
     execution_time = end_time - start_time
     
     print(f"✅ State gradient completed in {execution_time:.2f}s")
@@ -138,7 +139,7 @@ def test_simultaneous_x_grad_lcam_multi_gpu(gpu_count=8):
         return 1 - distributed_state_fidelity(u_ref, output)
     
     print("Running unitary evolution with multi-GPU sharding...")
-    start_time = jax.time.time()
+    start_time = time.time()
     
     # Run the computation
     result = infidelity(evo.all_params)
@@ -146,7 +147,7 @@ def test_simultaneous_x_grad_lcam_multi_gpu(gpu_count=8):
     # Wait for completion
     jax.block_until_ready(result)
     
-    end_time = jax.time.time()
+    end_time = time.time()
     execution_time = end_time - start_time
     
     print(f"✅ Unitary gradient completed in {execution_time:.2f}s")
