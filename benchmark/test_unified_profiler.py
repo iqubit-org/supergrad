@@ -48,20 +48,20 @@ def main():
     print("   ✅ JAX built-in device selection (no environment variables)")
     print("   ✅ Real-time device count verification")
     print("=" * 60)
-    print("Configuration: n_qubit=4 (sanity test)")
-    print("Expected execution time: ~20 minutes total")
-    print("   - 1-GPU: ~3-5 minutes")
-    print("   - 2-GPU: ~3-5 minutes") 
-    print("   - 4-GPU: ~3-5 minutes")
-    print("   - 8-GPU: ~3-5 minutes")
+    print("Configuration: n_qubit=8 (main benchmark)")
+    print("Expected execution time: ~2-3 hours total")
+    print("   - 1-GPU: ~20-30 minutes")
+    print("   - 2-GPU: ~20-30 minutes") 
+    print("   - 4-GPU: ~20-30 minutes")
+    print("   - 8-GPU: ~20-30 minutes")
     print("=" * 60)
     print("Note: This approach uses JAX's built-in device selection")
     print("      and will automatically adjust to available GPUs")
     print("=" * 60)
 
     try:
-        # Initialize profiler with n_qubit=4 for sanity test
-        profiler = MultiGPUProfiler(n_qubit=4)
+        # Initialize profiler with n_qubit=8 for main benchmark
+        profiler = MultiGPUProfiler(n_qubit=8)
 
         # Test individual configurations first
         print("\n🔍 Testing Individual Configurations:")
@@ -100,7 +100,7 @@ def main():
 
         print("\n🎯 Enhanced Individual Configuration Testing Complete!")
         print("Check the generated JSON file for detailed results and bottleneck analysis.")
-        print("\n💡 If this works well, you can test with n_qubit=8 next!")
+        print("\n💡 Main benchmark with n_qubit=8 completed!")
 
         return profiler.results
 

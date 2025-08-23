@@ -40,7 +40,7 @@ class MultiGPUProfiler:
     Expected execution time: ~1 hour total (10 min per GPU config)
     """
     
-    def __init__(self, n_qubit=12):
+    def __init__(self, n_qubit=8):
         """
         Initialize the enhanced profiler.
         
@@ -55,8 +55,8 @@ class MultiGPUProfiler:
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         print(f"🚀 Initialized Enhanced Multi-GPU Profiler for {n_qubit} qubits")
-        print("   Expected time per GPU config: ~10 minutes")
-        print("   Total profiling time: ~1 hour")
+        print("   Expected time per GPU config: ~20-30 minutes")
+        print("   Total profiling time: ~2-3 hours")
         print(f"   GPU memory monitoring: {'✅ Enabled' if NVML_AVAILABLE else '❌ Disabled'}")
         
         # Initialize NVML if available
