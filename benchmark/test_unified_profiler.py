@@ -36,8 +36,8 @@ def test_single_configuration(profiler, gpu_count: int):
 
 
 def main():
-    """Run the enhanced unified multi-GPU profiling with JAX device refresh"""
-    print("🚀 Testing Enhanced Multi-GPU Profiler with JAX Device Refresh")
+    """Run the enhanced unified multi-GPU profiling with JAX device selection"""
+    print("🚀 Testing Enhanced Multi-GPU Profiler with JAX Device Selection")
     print("=" * 60)
     print("Enhanced Features:")
     print("   ✅ Step-by-step timing breakdown")
@@ -45,7 +45,7 @@ def main():
     print("   ✅ Communication overhead profiling")
     print("   ✅ Individual GPU utilization tracking")
     print("   ✅ Comprehensive bottleneck analysis")
-    print("   ✅ JAX device cache clearing (no subprocesses)")
+    print("   ✅ JAX built-in device selection (no environment variables)")
     print("   ✅ Real-time device count verification")
     print("=" * 60)
     print("Configuration: n_qubit=4 (sanity test)")
@@ -54,6 +54,9 @@ def main():
     print("   - 2-GPU: ~3-5 minutes") 
     print("   - 4-GPU: ~3-5 minutes")
     print("   - 8-GPU: ~3-5 minutes")
+    print("=" * 60)
+    print("Note: This approach uses JAX's built-in device selection")
+    print("      and will automatically adjust to available GPUs")
     print("=" * 60)
 
     try:

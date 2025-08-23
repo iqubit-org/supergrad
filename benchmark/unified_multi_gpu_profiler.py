@@ -110,51 +110,27 @@ class MultiGPUProfiler:
             return {}
 
     def profile_gpu_configuration(self, gpu_count: int) -> Dict[str, Any]:
-        """Profile a specific GPU configuration with forced JAX device refresh"""
-        print(f"🔍 Testing {gpu_count}-GPU Configuration with Device Refresh...")
-        
-        # Store original environment
-        original_cuda_devices = os.environ.get('CUDA_VISIBLE_DEVICES', '')
-        original_xla_flags = os.environ.get('XLA_FLAGS', '')
+        """Profile using JAX's built-in device selection instead of environment variables"""
+        print(f"🔍 Testing {gpu_count}-GPU Configuration with JAX Device Selection...")
         
         try:
-            # Set environment variables for this GPU configuration
-            os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(i) for i in range(gpu_count))
-            os.environ['XLA_FLAGS'] = f'--xla_force_host_platform_device_count={gpu_count}'
-            
-            print(f"   Environment set for {gpu_count} GPUs")
-            print(f"   CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
-            print(f"   XLA_FLAGS: {os.environ['XLA_FLAGS']}")
-            
-            # Force JAX to refresh device list
+            # Import JAX first
             import jax
             import jax.numpy as jnp
             
-            # Clear JAX's internal caches to force device refresh
-            print("   Clearing JAX caches and refreshing devices...")
-            jax.clear_caches()         # Clear all JAX caches
+            # Get all available devices
+            all_devices = jax.devices()
+            print(f"   Total available devices: {len(all_devices)}")
+            print(f"   Device types: {[d.device_kind for d in all_devices]}")
             
-            # Try to clear device cache if available (some JAX versions don't have this)
-            try:
-                if hasattr(jax.devices, 'cache_clear'):
-                    jax.devices.cache_clear()
-                elif hasattr(jax, '_clear_device_cache'):
-                    jax._clear_device_cache()
-            except:
-                print("   Note: Device cache clearing not available in this JAX version")
+            # Select specific devices for this configuration
+            if len(all_devices) < gpu_count:
+                print(f"   ⚠️  Warning: Only {len(all_devices)} devices available, requested {gpu_count}")
+                gpu_count = len(all_devices)
+                print(f"   Adjusting to use {gpu_count} devices")
             
-            # Get fresh device list
-            available_devices = jax.devices()
-            device_types = [d.device_kind for d in available_devices]
-            
-            print(f"   Available devices: {len(available_devices)}")
-            print(f"   Device types: {device_types}")
-            
-            if len(available_devices) != gpu_count:
-                print(f"⚠️  Warning: Expected {gpu_count} GPUs, but got {len(available_devices)}")
-                print("   This might indicate environment variable issues")
-            else:
-                print(f"   ✅ Successfully configured {gpu_count} GPUs")
+            selected_devices = all_devices[:gpu_count]
+            print(f"   Selected {len(selected_devices)} devices for {gpu_count}-GPU configuration")
             
             # Import SuperGrad functions
             sys.path.append('..')
@@ -192,7 +168,8 @@ class MultiGPUProfiler:
                 'step_timing': {},
                 'memory_profiles': {},
                 'gpu_profiles': {},
-                'actual_devices_found': len(available_devices)
+                'actual_devices_found': len(all_devices),
+                'selected_devices': len(selected_devices)
             }
             
             # Step 1: System Creation and Initialization
@@ -345,20 +322,6 @@ class MultiGPUProfiler:
             print(f"   ❌ {gpu_count}-GPU configuration failed: {e}")
             return {'error': str(e)}
         
-        finally:
-            # Restore original environment
-            if original_cuda_devices:
-                os.environ['CUDA_VISIBLE_DEVICES'] = original_cuda_devices
-            else:
-                os.environ.pop('CUDA_VISIBLE_DEVICES', None)
-            
-            if original_xla_flags:
-                os.environ['XLA_FLAGS'] = original_xla_flags
-            else:
-                os.environ.pop('XLA_FLAGS', None)
-            
-            print("   Environment restored")
-    
     def run_full_scaling_analysis(self) -> Dict[str, Any]:
         """Run the complete scaling analysis across all GPU configurations"""
         print("🚀 Starting Multi-GPU Scaling Analysis...")
