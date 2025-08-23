@@ -4,17 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2fe5892b-2af4-4721-a2ff-0283ba9d033c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/benchmark/quick_diagnostic_v2.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/benchmark/multi_gpu_profiling.py" beforeDir="false" afterPath="$PROJECT_DIR$/benchmark/multi_gpu_profiling.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/fluxonium_multipath_coupling/fluxonium_mpcoupling_6q_cnot.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/fluxonium_multipath_coupling/fluxonium_mpcoupling_6q_cnot.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/fluxonium_multipath_coupling/fluxonium_mpcoupling_6q_x.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/fluxonium_multipath_coupling/fluxonium_mpcoupling_6q_x.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/spectrum_fitting_fluxonium/compute_spectrum.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/spectrum_fitting_fluxonium/compute_spectrum.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/spectrum_fitting_fluxonium/spectrum_fitting.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/spectrum_fitting_fluxonium/spectrum_fitting.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/transmon_coupler/transmon_5q_x.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/examples/transmon_coupler/transmon_5q_x.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tutorial/optimize_static_zz.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tutorial/optimize_static_zz.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tutorial/time_evolution_workflow.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/tutorial/time_evolution_workflow.ipynb" afterDir="false" />
-    </list>
+    <list default="true" id="2fe5892b-2af4-4721-a2ff-0283ba9d033c" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

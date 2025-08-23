@@ -48,6 +48,8 @@ class MultiGPUProfiler:
             n_qubit (int): Number of qubits for the benchmark (default: 12)
                           This workload takes ~10 minutes on 8 GPUs
         """
+        global NVML_AVAILABLE
+        
         self.n_qubit = n_qubit
         self.results = {}
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -64,7 +66,6 @@ class MultiGPUProfiler:
                 print("   NVML initialized successfully")
             except Exception as e:
                 print(f"   ⚠️  NVML initialization failed: {e}")
-                global NVML_AVAILABLE
                 NVML_AVAILABLE = False
 
     def get_gpu_memory_usage(self) -> Dict[str, Dict[str, float]]:
