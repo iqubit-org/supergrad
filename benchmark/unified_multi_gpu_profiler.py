@@ -109,275 +109,230 @@ class MultiGPUProfiler:
             print(f"   ⚠️  Failed to get GPU utilization: {e}")
             return {}
 
-    def _run_gpu_configuration_subprocess(self, gpu_count: int) -> Dict[str, Any]:
-        """Run a specific GPU configuration in a separate subprocess with enhanced profiling"""
-        print(f"�� Testing {gpu_count}-GPU Configuration with Enhanced Profiling...")
-
-        # Create a temporary script for this GPU configuration
-        script_content = f'''#!/usr/bin/env python3
-import os
-import time
-import psutil
-import sys
-import json
-from datetime import datetime
-
-# Set environment variables for this GPU configuration
-os.environ['CUDA_VISIBLE_DEVICES'] = '{",".join(str(i) for i in range(gpu_count))}'
-os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count={gpu_count}'
-
-# Now import JAX after environment setup
-import jax
-import jax.numpy as jnp
-
-# Import the paper's benchmark functions
-sys.path.append('..')
-from test_simultaneous_x import test_simultaneous_x_state_grad_lcam, test_simultaneous_x_grad_lcam
-from utils.create_simultaneous_model import create_simultaneous_x
-
-def create_mock_benchmark(test_type, n_qubit):
-    class MockBenchmark:
-        def __init__(self, test_type, n_qubit):
-            if test_type == 'state':
-                self.group = f'gradient_simultaneous_x_state_{{n_qubit}}_qubits'
-            else:
-                self.group = f'gradient_simultaneous_x_{{n_qubit}}_qubits'
-            self.extra_info = {{}}
-
-        def __call__(self, func):
-            return func()
-
-    return MockBenchmark(test_type, n_qubit)
-
-def get_system_memory_info():
-    """Get current system memory usage"""
-    memory = psutil.virtual_memory()
-    return {{
-        'total_gb': memory.total / (1024**3),
-        'available_gb': memory.available / (1024**3),
-        'used_gb': memory.used / (1024**3),
-        'percent': memory.percent
-    }}
-
-def profile_configuration():
-    results = {{
-        'gpu_count': {gpu_count}, 
-        'n_qubit': 12,
-        'timestamp': datetime.now().isoformat(),
-        'step_timing': {{}},
-        'memory_profiles': {{}},
-        'gpu_profiles': {{}}
-    }}
-
-    # Verify GPU setup
-    available_devices = len(jax.devices())
-    device_types = [d.device_kind for d in jax.devices()]
-
-    print(f"   Available devices: {{available_devices}}")
-    print(f"   Device types: {{device_types}}")
-
-    if available_devices != {gpu_count}:
-        print(f"⚠️  Warning: Expected {gpu_count} GPUs, but got {{available_devices}}")
-
-    # Step 1: System Creation and Initialization
-    print(f"   🏗️  Step 1: Creating evolution object for 12 qubits...")
-    start_time = time.time()
-    start_memory = psutil.Process().memory_info().rss / 1024 / 1024
-    
-    evo = create_simultaneous_x(
-        12,  # Fixed to 12 qubits
-        astep=5000,
-        trotter_order=2,
-        diag_ops=True,
-        minimal_approach=True,
-        custom_vjp=True
-    )
-    
-    creation_time = time.time() - start_time
-    end_memory = psutil.Process().memory_info().rss / 1024 / 1024
-    
-    results['step_timing']['system_creation'] = creation_time
-    results['memory_profiles']['system_creation'] = {{
-        'start_mb': start_memory,
-        'end_mb': end_memory,
-        'delta_mb': end_memory - start_memory
-    }}
-    
-    print(f"   ✅ System creation completed: {{creation_time:.2f}}s (Memory: +{{end_memory - start_memory:.1f}}MB)")
-
-    # Get parameter count
-    total_params = sum(p.size for p in jax.tree_util.tree_leaves(evo.all_params))
-    print(f"   Total parameters: {{total_params}}")
-
-    # Step 2: State Gradient Computation
-    print("   🧪 Step 2: Profiling State Evolution + Gradient (LCAM) - n_qubit=12...")
-    try:
-        start_time = time.time()
-        start_memory = psutil.Process().memory_info().rss / 1024 / 1024
-        start_system_memory = get_system_memory_info()
-
-        # Run the benchmark
-        benchmark = create_mock_benchmark('state', 12)
-        result = test_simultaneous_x_state_grad_lcam(
-            benchmark=benchmark,
-            n_qubit=12
-        )
-
-        # Wait for completion
-        jax.block_until_ready(result)
-
-        # Get final metrics
-        end_time = time.time()
-        end_memory = psutil.Process().memory_info().rss / 1024 / 1024
-        end_system_memory = get_system_memory_info()
+    def profile_gpu_configuration(self, gpu_count: int) -> Dict[str, Any]:
+        """Profile a specific GPU configuration directly in the main process"""
+        print(f"🔍 Testing {gpu_count}-GPU Configuration with Direct GPU Access...")
         
-        execution_time = end_time - start_time
-        memory_delta = end_memory - start_memory
-
-        results['state_grad'] = {{
-            'execution_time': execution_time,
-            'memory_delta_cpu': memory_delta,
-            'memory_delta_gpu': 0.0,  # Simplified for subprocess
-            'gpu_utilization': {{f'GPU_{{i}}': 0.0 for i in range({gpu_count})}},
-            'success': True
-        }}
-        
-        results['step_timing']['state_gradient'] = execution_time
-        results['memory_profiles']['state_gradient'] = {{
-            'start_mb': start_memory,
-            'end_mb': end_memory,
-            'delta_mb': memory_delta,
-            'start_system_gb': start_system_memory,
-            'end_system_gb': end_system_memory
-        }}
-
-        print(f"   ✅ State gradient completed: {{execution_time:.2f}}s (Memory: +{{memory_delta:.1f}}MB)")
-
-    except Exception as e:
-        print(f"   ❌ State gradient failed: {{e}}")
-        results['state_grad'] = {{'success': False, 'error': str(e)}}
-
-    # Step 3: Unitary Gradient Computation
-    print("   🧪 Step 3: Profiling Unitary Evolution + Gradient (LCAM) - n_qubit=12...")
-    try:
-        start_time = time.time()
-        start_memory = psutil.Process().memory_info().rss / 1024 / 1024
-        start_system_memory = get_system_memory_info()
-
-        # Run the benchmark
-        benchmark = create_mock_benchmark('unitary', 12)
-        result = test_simultaneous_x_grad_lcam(
-            benchmark=benchmark,
-            n_qubit=12
-        )
-
-        # Wait for completion
-        jax.block_until_ready(result)
-
-        # Get final metrics
-        end_time = time.time()
-        end_memory = psutil.Process().memory_info().rss / 1024 / 1024
-        end_system_memory = get_system_memory_info()
-        
-        execution_time = end_time - start_time
-        memory_delta = end_memory - start_memory
-
-        results['unitary_grad'] = {{
-            'execution_time': execution_time,
-            'memory_delta_cpu': memory_delta,
-            'memory_delta_gpu': 0.0,  # Simplified for subprocess
-            'gpu_utilization': {{f'GPU_{{i}}': 0.0 for i in range({gpu_count})}},
-            'success': True
-        }}
-        
-        results['step_timing']['unitary_gradient'] = execution_time
-        results['memory_profiles']['unitary_gradient'] = {{
-            'start_mb': start_memory,
-            'end_mb': end_memory,
-            'delta_mb': memory_delta,
-            'start_system_gb': start_system_memory,
-            'end_system_gb': end_system_memory
-        }}
-
-        print(f"   ✅ Unitary gradient completed: {{execution_time:.2f}}s (Memory: +{{memory_delta:.1f}}MB)")
-
-    except Exception as e:
-        print(f"   ❌ Unitary gradient failed: {{e}}")
-        results['unitary_grad'] = {{'success': False, 'error': str(e)}}
-
-    # Final memory profile
-    final_memory = psutil.Process().memory_info().rss / 1024 / 1024
-    final_system_memory = get_system_memory_info()
-    
-    results['memory_profiles']['final'] = {{
-        'process_mb': final_memory,
-        'system_gb': final_system_memory
-    }}
-
-    print(f"   🎯 {gpu_count}-GPU configuration completed!")
-    print(f"   Final memory usage: {{final_memory:.1f}}MB (Process), {{final_system_memory['used_gb']:.1f}}GB (System)")
-    print()
-
-    # Return results as JSON string
-    return json.dumps(results)
-
-if __name__ == "__main__":
-    result = profile_configuration()
-    print("RESULT_START")
-    print(result)
-    print("RESULT_END")
-'''
-        
-        # Write temporary script
-        script_filename = f"temp_gpu_{gpu_count}_test.py"
-        with open(script_filename, 'w') as f:
-            f.write(script_content)
+        # Store original environment
+        original_cuda_devices = os.environ.get('CUDA_VISIBLE_DEVICES', '')
+        original_xla_flags = os.environ.get('XLA_FLAGS', '')
         
         try:
-            # Run the subprocess
-            print(f"   Running {gpu_count}-GPU configuration in subprocess...")
-            result = subprocess.run(
-                [sys.executable, script_filename],
-                capture_output=True,
-                text=True,
-                cwd=os.getcwd(),
-                env=os.environ.copy()
+            # Set environment variables for this GPU configuration
+            os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(i) for i in range(gpu_count))
+            os.environ['XLA_FLAGS'] = f'--xla_force_host_platform_device_count={gpu_count}'
+            
+            print(f"   Environment set for {gpu_count} GPUs")
+            print(f"   CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
+            print(f"   XLA_FLAGS: {os.environ['XLA_FLAGS']}")
+            
+            # Import JAX after environment setup
+            import jax
+            import jax.numpy as jnp
+            
+            # Verify GPU setup
+            available_devices = len(jax.devices())
+            device_types = [d.device_kind for d in jax.devices()]
+            
+            print(f"   Available devices: {available_devices}")
+            print(f"   Device types: {device_types}")
+            
+            if available_devices != gpu_count:
+                print(f"⚠️  Warning: Expected {gpu_count} GPUs, but got {available_devices}")
+            
+            # Import SuperGrad functions
+            sys.path.append('..')
+            from test_simultaneous_x import test_simultaneous_x_state_grad_lcam, test_simultaneous_x_grad_lcam
+            from utils.create_simultaneous_model import create_simultaneous_x
+            
+            # Create mock benchmark
+            def create_mock_benchmark(test_type, n_qubit):
+                class MockBenchmark:
+                    def __init__(self, test_type, n_qubit):
+                        if test_type == 'state':
+                            self.group = f'gradient_simultaneous_x_state_{n_qubit}_qubits'
+                        else:
+                            self.group = f'gradient_simultaneous_x_{n_qubit}_qubits'
+                        self.extra_info = {}
+                    
+                    def __call__(self, func):
+                        return func()
+                
+                return MockBenchmark(test_type, n_qubit)
+            
+            # Initialize results
+            results = {
+                'gpu_count': gpu_count,
+                'n_qubit': self.n_qubit,
+                'timestamp': datetime.now().isoformat(),
+                'step_timing': {},
+                'memory_profiles': {},
+                'gpu_profiles': {}
+            }
+            
+            # Step 1: System Creation and Initialization
+            print(f"   🏗️  Step 1: Creating evolution object for {self.n_qubit} qubits...")
+            start_time = time.time()
+            start_memory = psutil.Process().memory_info().rss / 1024 / 1024
+            
+            evo = create_simultaneous_x(
+                self.n_qubit,
+                astep=5000,
+                trotter_order=2,
+                diag_ops=True,
+                minimal_approach=True,
+                custom_vjp=False  # Use JAX's built-in VJP for better multi-GPU compatibility
             )
             
-            # Parse output
-            output = result.stdout
-            if "RESULT_START" in output and "RESULT_END" in output:
-                start_idx = output.find("RESULT_START") + len("RESULT_START")
-                end_idx = output.find("RESULT_END")
-                result_json = output[start_idx:end_idx].strip()
-                
-                # Parse JSON result
-                try:
-                    parsed_result = json.loads(result_json)
-                    print(f"   ✅ {gpu_count}-GPU configuration completed successfully!")
-                    return parsed_result
-                except json.JSONDecodeError as e:
-                    print(f"   ❌ Failed to parse {gpu_count}-GPU results: {e}")
-                    return {'error': f'JSON parse error: {e}'}
-            else:
-                print(f"   ❌ {gpu_count}-GPU subprocess failed to produce results")
-                print(f"   stdout: {output}")
-                print(f"   stderr: {result.stderr}")
-                return {'error': 'Subprocess failed to produce results'}
-                
-        except Exception as e:
-            print(f"   ❌ Failed to run {gpu_count}-GPU subprocess: {e}")
-            return {'error': f'Subprocess error: {e}'}
-        finally:
-            # Clean up temporary script
+            creation_time = time.time() - start_time
+            end_memory = psutil.Process().memory_info().rss / 1024 / 1024
+            
+            results['step_timing']['system_creation'] = creation_time
+            results['memory_profiles']['system_creation'] = {
+                'start_mb': start_memory,
+                'end_mb': end_memory,
+                'delta_mb': end_memory - start_memory
+            }
+            
+            print(f"   ✅ System creation completed: {creation_time:.2f}s (Memory: +{end_memory - start_memory:.1f}MB)")
+            
+            # Get parameter count
+            total_params = sum(p.size for p in jax.tree_util.tree_leaves(evo.all_params))
+            print(f"   Total parameters: {total_params}")
+            
+            # Step 2: State Gradient Computation
+            print("   🧪 Step 2: Profiling State Evolution + Gradient (LCAM) - n_qubit=4...")
             try:
-                os.remove(script_filename)
-            except:
-                pass
-    
-    def profile_gpu_configuration(self, gpu_count: int) -> Dict[str, Any]:
-        """Profile a specific GPU configuration using subprocess"""
-        return self._run_gpu_configuration_subprocess(gpu_count)
+                start_time = time.time()
+                start_memory = psutil.Process().memory_info().rss / 1024 / 1024
+                
+                # Get initial GPU memory if available
+                start_gpu_memory = self.get_gpu_memory_usage()
+                
+                # Run the benchmark
+                benchmark = create_mock_benchmark('state', self.n_qubit)
+                result = test_simultaneous_x_state_grad_lcam(
+                    benchmark=benchmark,
+                    n_qubit=self.n_qubit
+                )
+                
+                # Wait for completion
+                jax.block_until_ready(result)
+                
+                # Get final metrics
+                end_time = time.time()
+                end_memory = psutil.Process().memory_info().rss / 1024 / 1024
+                end_gpu_memory = self.get_gpu_memory_usage()
+                
+                execution_time = end_time - start_time
+                memory_delta = end_memory - start_memory
+                
+                results['state_grad'] = {
+                    'execution_time': execution_time,
+                    'memory_delta_cpu': memory_delta,
+                    'memory_delta_gpu': 0.0,  # Will be calculated if GPU memory available
+                    'gpu_utilization': self.get_gpu_utilization(),
+                    'success': True
+                }
+                
+                results['step_timing']['state_gradient'] = execution_time
+                results['memory_profiles']['state_gradient'] = {
+                    'start_mb': start_memory,
+                    'end_mb': end_memory,
+                    'delta_mb': memory_delta,
+                    'start_gpu_memory': start_gpu_memory,
+                    'end_gpu_memory': end_gpu_memory
+                }
+                
+                print(f"   ✅ State gradient completed: {execution_time:.2f}s (Memory: +{memory_delta:.1f}MB)")
+                
+            except Exception as e:
+                print(f"   ❌ State gradient failed: {e}")
+                results['state_grad'] = {'success': False, 'error': str(e)}
+            
+            # Step 3: Unitary Gradient Computation
+            print("   🧪 Step 3: Profiling Unitary Evolution + Gradient (LCAM) - n_qubit=4...")
+            try:
+                start_time = time.time()
+                start_memory = psutil.Process().memory_info().rss / 1024 / 1024
+                start_gpu_memory = self.get_gpu_memory_usage()
+                
+                # Run the benchmark
+                benchmark = create_mock_benchmark('unitary', self.n_qubit)
+                result = test_simultaneous_x_grad_lcam(
+                    benchmark=benchmark,
+                    n_qubit=self.n_qubit
+                )
+                
+                # Wait for completion
+                jax.block_until_ready(result)
+                
+                # Get final metrics
+                end_time = time.time()
+                end_memory = psutil.Process().memory_info().rss / 1024 / 1024
+                end_gpu_memory = self.get_gpu_memory_usage()
+                
+                execution_time = end_time - start_time
+                memory_delta = end_memory - start_memory
+                
+                results['unitary_grad'] = {
+                    'execution_time': execution_time,
+                    'memory_delta_cpu': memory_delta,
+                    'memory_delta_gpu': 0.0,  # Will be calculated if GPU memory available
+                    'gpu_utilization': self.get_gpu_utilization(),
+                    'success': True
+                }
+                
+                results['step_timing']['unitary_gradient'] = execution_time
+                results['memory_profiles']['unitary_gradient'] = {
+                    'start_mb': start_memory,
+                    'end_mb': end_memory,
+                    'delta_mb': memory_delta,
+                    'start_gpu_memory': start_gpu_memory,
+                    'end_gpu_memory': end_gpu_memory
+                }
+                
+                print(f"   ✅ Unitary gradient completed: {execution_time:.2f}s (Memory: +{memory_delta:.1f}MB)")
+                
+            except Exception as e:
+                print(f"   ❌ Unitary gradient failed: {e}")
+                results['unitary_grad'] = {'success': False, 'error': str(e)}
+            
+            # Final memory profile
+            final_memory = psutil.Process().memory_info().rss / 1024 / 1024
+            final_gpu_memory = self.get_gpu_memory_usage()
+            
+            results['memory_profiles']['final'] = {
+                'process_mb': final_memory,
+                'gpu_memory': final_gpu_memory
+            }
+            
+            print(f"   🎯 {gpu_count}-GPU configuration completed!")
+            print(f"   Final memory usage: {final_memory:.1f}MB (Process)")
+            if final_gpu_memory:
+                for gpu, mem in final_gpu_memory.items():
+                    print(f"   {gpu}: {mem['used_gb']:.1f}GB used / {mem['total_gb']:.1f}GB total")
+            print()
+            
+            return results
+            
+        except Exception as e:
+            print(f"   ❌ {gpu_count}-GPU configuration failed: {e}")
+            return {'error': str(e)}
+        
+        finally:
+            # Restore original environment
+            if original_cuda_devices:
+                os.environ['CUDA_VISIBLE_DEVICES'] = original_cuda_devices
+            else:
+                os.environ.pop('CUDA_VISIBLE_DEVICES', None)
+            
+            if original_xla_flags:
+                os.environ['XLA_FLAGS'] = original_xla_flags
+            else:
+                os.environ.pop('XLA_FLAGS', None)
+            
+            print("   Environment restored")
     
     def run_full_scaling_analysis(self) -> Dict[str, Any]:
         """Run the complete scaling analysis across all GPU configurations"""

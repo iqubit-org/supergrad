@@ -19,7 +19,7 @@ def test_single_configuration(gpu_count: int):
     print("=" * 50)
     
     try:
-        profiler = MultiGPUProfiler(n_qubit=8)
+        profiler = MultiGPUProfiler(n_qubit=12)
         result = profiler.profile_gpu_configuration(gpu_count)
         
         if 'error' in result:
@@ -37,8 +37,8 @@ def test_single_configuration(gpu_count: int):
 
 
 def main():
-    """Run the enhanced unified multi-GPU profiling"""
-    print("🚀 Testing Enhanced Multi-GPU Profiler with n_qubit=12")
+    """Run the enhanced unified multi-GPU profiling with direct GPU access"""
+    print("🚀 Testing Enhanced Multi-GPU Profiler with Direct GPU Access")
     print("=" * 60)
     print("Enhanced Features:")
     print("   ✅ Step-by-step timing breakdown")
@@ -46,17 +46,19 @@ def main():
     print("   ✅ Communication overhead profiling")
     print("   ✅ Individual GPU utilization tracking")
     print("   ✅ Comprehensive bottleneck analysis")
+    print("   ✅ Direct GPU access (no subprocesses)")
     print("=" * 60)
-    print("Expected execution time: ~1 hour total")
-    print("   - 1-GPU: ~10-15 minutes")
-    print("   - 2-GPU: ~10-15 minutes") 
-    print("   - 4-GPU: ~10-15 minutes")
-    print("   - 8-GPU: ~10-15 minutes")
+    print("Configuration: n_qubit=4 (faster testing)")
+    print("Expected execution time: ~30 minutes total")
+    print("   - 1-GPU: ~5-8 minutes")
+    print("   - 2-GPU: ~5-8 minutes") 
+    print("   - 4-GPU: ~5-8 minutes")
+    print("   - 8-GPU: ~5-8 minutes")
     print("=" * 60)
 
     try:
-        # Initialize profiler
-        profiler = MultiGPUProfiler(n_qubit=12)  # Updated to 12
+        # Initialize profiler with n_qubit=4 for faster testing
+        profiler = MultiGPUProfiler(n_qubit=4)
 
         # Test individual configurations first
         print("\n🔍 Testing Individual Configurations:")
