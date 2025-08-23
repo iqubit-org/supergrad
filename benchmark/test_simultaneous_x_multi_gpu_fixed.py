@@ -54,7 +54,7 @@ def create_multi_gpu_evolution(n_qubit, gpu_count, astep=5000, trotter_order=2,
     return evo, selected_devices
 
 
-def test_simultaneous_x_state_grad_lcam_multi_gpu(gpu_count=4):
+def test_simultaneous_x_state_grad_lcam_multi_gpu(gpu_count=8):
     """Test state gradient with proper multi-GPU sharding"""
     
     print(f"🧪 Testing State Evolution + Gradient (LCAM) with {gpu_count} GPUs")
@@ -106,7 +106,7 @@ def test_simultaneous_x_state_grad_lcam_multi_gpu(gpu_count=4):
     return result, execution_time
 
 
-def test_simultaneous_x_grad_lcam_multi_gpu(gpu_count=4):
+def test_simultaneous_x_grad_lcam_multi_gpu(gpu_count=8):
     """Test unitary gradient with proper multi-GPU sharding"""
     
     print(f"🧪 Testing Unitary Evolution + Gradient (LCAM) with {gpu_count} GPUs")
@@ -166,10 +166,11 @@ def main():
     print("  ✅ Multiple initial states (psi0.ndim == 3)")
     print("  ✅ Proper JAX sharding applied")
     print("  ✅ Device selection and validation")
+    print("  ✅ Using all 8 available GPUs")
     print("=" * 70)
     
-    # Test with 4 GPUs
-    gpu_count = 4
+    # Test with 8 GPUs (all available)
+    gpu_count = 8
     
     try:
         # Test state gradient
