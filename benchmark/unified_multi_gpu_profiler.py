@@ -110,8 +110,8 @@ class MultiGPUProfiler:
             return {}
 
     def profile_gpu_configuration(self, gpu_count: int) -> Dict[str, Any]:
-        """Profile a specific GPU configuration directly in the main process"""
-        print(f"🔍 Testing {gpu_count}-GPU Configuration with Direct GPU Access...")
+        """Profile a specific GPU configuration with forced JAX device refresh"""
+        print(f"🔍 Testing {gpu_count}-GPU Configuration with Device Refresh...")
         
         # Store original environment
         original_cuda_devices = os.environ.get('CUDA_VISIBLE_DEVICES', '')
@@ -126,19 +126,27 @@ class MultiGPUProfiler:
             print(f"   CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
             print(f"   XLA_FLAGS: {os.environ['XLA_FLAGS']}")
             
-            # Import JAX after environment setup
+            # Force JAX to refresh device list
             import jax
-            import jax.numpy as jnp
+            import jax.devices
             
-            # Verify GPU setup
-            available_devices = len(jax.devices())
-            device_types = [d.device_kind for d in jax.devices()]
+            # Clear JAX's internal caches to force device refresh
+            print("   Clearing JAX caches and refreshing devices...")
+            jax.clear_caches()         # Clear all JAX caches
+            jax.devices.cache_clear()  # Clear device cache specifically
             
-            print(f"   Available devices: {available_devices}")
+            # Get fresh device list
+            available_devices = jax.devices()
+            device_types = [d.device_kind for d in available_devices]
+            
+            print(f"   Available devices: {len(available_devices)}")
             print(f"   Device types: {device_types}")
             
-            if available_devices != gpu_count:
-                print(f"⚠️  Warning: Expected {gpu_count} GPUs, but got {available_devices}")
+            if len(available_devices) != gpu_count:
+                print(f"⚠️  Warning: Expected {gpu_count} GPUs, but got {len(available_devices)}")
+                print("   This might indicate environment variable issues")
+            else:
+                print(f"   ✅ Successfully configured {gpu_count} GPUs")
             
             # Import SuperGrad functions
             sys.path.append('..')
@@ -167,7 +175,8 @@ class MultiGPUProfiler:
                 'timestamp': datetime.now().isoformat(),
                 'step_timing': {},
                 'memory_profiles': {},
-                'gpu_profiles': {}
+                'gpu_profiles': {},
+                'actual_devices_found': len(available_devices)
             }
             
             # Step 1: System Creation and Initialization
@@ -201,7 +210,7 @@ class MultiGPUProfiler:
             print(f"   Total parameters: {total_params}")
             
             # Step 2: State Gradient Computation
-            print("   🧪 Step 2: Profiling State Evolution + Gradient (LCAM) - n_qubit=4...")
+            print(f"   🧪 Step 2: Profiling State Evolution + Gradient (LCAM) - n_qubit={self.n_qubit}...")
             try:
                 start_time = time.time()
                 start_memory = psutil.Process().memory_info().rss / 1024 / 1024
@@ -251,7 +260,7 @@ class MultiGPUProfiler:
                 results['state_grad'] = {'success': False, 'error': str(e)}
             
             # Step 3: Unitary Gradient Computation
-            print("   🧪 Step 3: Profiling Unitary Evolution + Gradient (LCAM) - n_qubit=4...")
+            print(f"   🧪 Step 3: Profiling Unitary Evolution + Gradient (LCAM) - n_qubit={self.n_qubit}...")
             try:
                 start_time = time.time()
                 start_memory = psutil.Process().memory_info().rss / 1024 / 1024

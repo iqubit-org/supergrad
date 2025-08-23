@@ -37,8 +37,8 @@ def test_single_configuration(gpu_count: int):
 
 
 def main():
-    """Run the enhanced unified multi-GPU profiling with direct GPU access"""
-    print("🚀 Testing Enhanced Multi-GPU Profiler with Direct GPU Access")
+    """Run the enhanced unified multi-GPU profiling with JAX device refresh"""
+    print("🚀 Testing Enhanced Multi-GPU Profiler with JAX Device Refresh")
     print("=" * 60)
     print("Enhanced Features:")
     print("   ✅ Step-by-step timing breakdown")
@@ -46,18 +46,19 @@ def main():
     print("   ✅ Communication overhead profiling")
     print("   ✅ Individual GPU utilization tracking")
     print("   ✅ Comprehensive bottleneck analysis")
-    print("   ✅ Direct GPU access (no subprocesses)")
+    print("   ✅ JAX device cache clearing (no subprocesses)")
+    print("   ✅ Real-time device count verification")
     print("=" * 60)
-    print("Configuration: n_qubit=4 (faster testing)")
-    print("Expected execution time: ~30 minutes total")
-    print("   - 1-GPU: ~5-8 minutes")
-    print("   - 2-GPU: ~5-8 minutes") 
-    print("   - 4-GPU: ~5-8 minutes")
-    print("   - 8-GPU: ~5-8 minutes")
+    print("Configuration: n_qubit=4 (sanity test)")
+    print("Expected execution time: ~20 minutes total")
+    print("   - 1-GPU: ~3-5 minutes")
+    print("   - 2-GPU: ~3-5 minutes") 
+    print("   - 4-GPU: ~3-5 minutes")
+    print("   - 8-GPU: ~3-5 minutes")
     print("=" * 60)
 
     try:
-        # Initialize profiler with n_qubit=4 for faster testing
+        # Initialize profiler with n_qubit=4 for sanity test
         profiler = MultiGPUProfiler(n_qubit=4)
 
         # Test individual configurations first
@@ -97,6 +98,7 @@ def main():
 
         print("\n🎯 Enhanced Individual Configuration Testing Complete!")
         print("Check the generated JSON file for detailed results and bottleneck analysis.")
+        print("\n💡 If this works well, you can test with n_qubit=8 next!")
 
         return profiler.results
 
