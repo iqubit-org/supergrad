@@ -13,13 +13,12 @@ sys.path.append('..')
 from unified_multi_gpu_profiler import MultiGPUProfiler
 
 
-def test_single_configuration(gpu_count: int):
-    """Test a single GPU configuration"""
+def test_single_configuration(profiler, gpu_count: int):
+    """Test a single GPU configuration using the provided profiler"""
     print(f"🧪 Testing {gpu_count}-GPU Configuration...")
     print("=" * 50)
     
     try:
-        profiler = MultiGPUProfiler(n_qubit=12)
         result = profiler.profile_gpu_configuration(gpu_count)
         
         if 'error' in result:
@@ -66,19 +65,19 @@ def main():
         print("-" * 40)
 
         # Test 1-GPU first (baseline)
-        result_1gpu = test_single_configuration(1)
+        result_1gpu = test_single_configuration(profiler, 1)
         if 'error' in result_1gpu:
             print("❌ Cannot proceed: 1-GPU baseline failed")
             return None
 
         # Test 2-GPU
-        result_2gpu = test_single_configuration(2)
+        result_2gpu = test_single_configuration(profiler, 2)
 
         # Test 4-GPU
-        result_4gpu = test_single_configuration(4)
+        result_4gpu = test_single_configuration(profiler, 4)
 
         # Test 8-GPU
-        result_8gpu = test_single_configuration(8)
+        result_8gpu = test_single_configuration(profiler, 8)
 
         # Collect results
         profiler.results = {

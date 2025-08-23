@@ -158,8 +158,16 @@ class MultiGPUProfiler:
             
             # Import SuperGrad functions
             sys.path.append('..')
-            from test_simultaneous_x import test_simultaneous_x_state_grad_lcam, test_simultaneous_x_grad_lcam
-            from utils.create_simultaneous_model import create_simultaneous_x
+            
+            # Import the real benchmark functions (qiskit_dynamics is needed)
+            try:
+                from test_simultaneous_x import test_simultaneous_x_state_grad_lcam, test_simultaneous_x_grad_lcam
+                from utils.create_simultaneous_model import create_simultaneous_x
+                print("   ✅ Successfully imported benchmark functions")
+            except ImportError as e:
+                print(f"   ❌ Failed to import benchmark functions: {e}")
+                print("   This might be due to missing dependencies like qiskit_dynamics")
+                return {'error': f'Import error: {e}'}
             
             # Create mock benchmark
             def create_mock_benchmark(test_type, n_qubit):
@@ -226,7 +234,7 @@ class MultiGPUProfiler:
                 # Get initial GPU memory if available
                 start_gpu_memory = self.get_gpu_memory_usage()
                 
-                # Run the benchmark
+                # Run the real benchmark
                 benchmark = create_mock_benchmark('state', self.n_qubit)
                 result = test_simultaneous_x_state_grad_lcam(
                     benchmark=benchmark,
@@ -274,7 +282,7 @@ class MultiGPUProfiler:
                 start_memory = psutil.Process().memory_info().rss / 1024 / 1024
                 start_gpu_memory = self.get_gpu_memory_usage()
                 
-                # Run the benchmark
+                # Run the real benchmark
                 benchmark = create_mock_benchmark('unitary', self.n_qubit)
                 result = test_simultaneous_x_grad_lcam(
                     benchmark=benchmark,
