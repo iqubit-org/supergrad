@@ -128,12 +128,20 @@ class MultiGPUProfiler:
             
             # Force JAX to refresh device list
             import jax
-            import jax.devices
+            import jax.numpy as jnp
             
             # Clear JAX's internal caches to force device refresh
             print("   Clearing JAX caches and refreshing devices...")
             jax.clear_caches()         # Clear all JAX caches
-            jax.devices.cache_clear()  # Clear device cache specifically
+            
+            # Try to clear device cache if available (some JAX versions don't have this)
+            try:
+                if hasattr(jax.devices, 'cache_clear'):
+                    jax.devices.cache_clear()
+                elif hasattr(jax, '_clear_device_cache'):
+                    jax._clear_device_cache()
+            except:
+                print("   Note: Device cache clearing not available in this JAX version")
             
             # Get fresh device list
             available_devices = jax.devices()
