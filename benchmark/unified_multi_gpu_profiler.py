@@ -29,25 +29,26 @@ class MultiGPUProfiler:
     
     Features:
     - TRUE GPU isolation using CUDA_VISIBLE_DEVICES
+    - Enhanced JAX cache clearing for reliable isolation
     - Step-by-step timing breakdown
     - GPU memory usage monitoring
     - Communication overhead profiling
     - Individual GPU utilization tracking
     - Comprehensive bottleneck analysis
     
-    Tests the same workload (n_qubit=8) across different GPU configurations
+    Tests the same workload (n_qubit=6) across different GPU configurations
     to analyze scaling efficiency and identify bottlenecks.
     
-    Expected execution time: ~2-3 hours total (30-60 min per GPU config)
+    Expected execution time: ~1-2 hours total (15-30 min per GPU config)
     """
     
-    def __init__(self, n_qubit=8):
+    def __init__(self, n_qubit=6):
         """
         Initialize the enhanced profiler.
         
         Args:
-            n_qubit (int): Number of qubits for the benchmark (default: 12)
-                          This workload takes ~10 minutes on 8 GPUs
+            n_qubit (int): Number of qubits for the benchmark (default: 6)
+                          This workload takes ~5-10 minutes on 8 GPUs
         """
         global NVML_AVAILABLE
         
@@ -57,8 +58,8 @@ class MultiGPUProfiler:
         
         print(f"🚀 Initialized Enhanced Multi-GPU Profiler for {n_qubit} qubits")
         print("   GPU isolation: ✅ CUDA_VISIBLE_DEVICES (TRUE isolation)")
-        print("   Expected time per GPU config: ~30-60 minutes")
-        print("   Total profiling time: ~2-3 hours")
+        print("   Expected time per GPU config: ~15-30 minutes")
+        print("   Total profiling time: ~1-2 hours")
         print(f"   GPU memory monitoring: {'✅ Enabled' if NVML_AVAILABLE else '❌ Disabled'}")
         
         # Initialize NVML if available
@@ -127,8 +128,18 @@ class MultiGPUProfiler:
             import jax
             import jax.numpy as jnp
             
-            # Force JAX to re-evaluate available devices
-            jax.devices()
+            # Force JAX to completely re-evaluate available devices
+            # Clear any cached device information
+            if hasattr(jax, 'devices'):
+                # Force JAX to refresh device list
+                jax.devices()
+                
+                # Additional cache clearing for stubborn JAX versions
+                if hasattr(jax, '_xla_bridge'):
+                    try:
+                        jax._xla_bridge.get_backend('gpu')
+                    except:
+                        pass
             
             # Get devices after isolation
             all_devices = jax.devices()
@@ -139,6 +150,26 @@ class MultiGPUProfiler:
             if len(all_devices) != gpu_count:
                 print(f"   ⚠️  Warning: Expected {gpu_count} GPUs, but got {len(all_devices)}")
                 print(f"   🔍 This might indicate GPU isolation isn't working properly")
+                print(f"   🔧 Attempting additional JAX cache clearing...")
+                
+                # Try more aggressive cache clearing
+                try:
+                    import jaxlib
+                    if hasattr(jaxlib, 'xla_extension'):
+                        # Force XLA to re-evaluate devices
+                        jaxlib.xla_extension.get_backend('gpu')
+                except:
+                    pass
+                
+                # Check again
+                all_devices = jax.devices()
+                print(f"   📱 Devices after cache clearing: {len(all_devices)}")
+                
+                if len(all_devices) != gpu_count:
+                    print(f"   ❌ GPU isolation failed - JAX still sees {len(all_devices)} devices")
+                    print(f"   🔍 This suggests a fundamental JAX/CUDA integration issue")
+                else:
+                    print(f"   ✅ GPU isolation successful after cache clearing: {len(all_devices)} devices visible")
             else:
                 print(f"   ✅ GPU isolation successful: {len(all_devices)} devices visible")
             

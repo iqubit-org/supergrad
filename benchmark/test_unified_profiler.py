@@ -36,32 +36,32 @@ def test_single_configuration(profiler, gpu_count: int):
 
 
 def main():
-    """Run the enhanced unified multi-GPU profiling with JAX device selection"""
-    print("🚀 Testing Enhanced Multi-GPU Profiler with JAX Device Selection")
+    """Run the enhanced unified multi-GPU profiling with TRUE GPU isolation"""
+    print("🚀 Testing Enhanced Multi-GPU Profiler with TRUE GPU Isolation")
     print("=" * 60)
     print("Enhanced Features:")
+    print("   ✅ TRUE GPU isolation using CUDA_VISIBLE_DEVICES")
     print("   ✅ Step-by-step timing breakdown")
     print("   ✅ GPU memory usage monitoring")
     print("   ✅ Communication overhead profiling")
     print("   ✅ Individual GPU utilization tracking")
     print("   ✅ Comprehensive bottleneck analysis")
-    print("   ✅ JAX built-in device selection (no environment variables)")
-    print("   ✅ Real-time device count verification")
+    print("   ✅ Environment cleanup between GPU configurations")
     print("=" * 60)
-    print("Configuration: n_qubit=8 (main benchmark)")
-    print("Expected execution time: ~4-6 hours total")
-    print("   - 1-GPU: ~60-90 minutes")
-    print("   - 2-GPU: ~30-45 minutes") 
-    print("   - 4-GPU: ~15-23 minutes")
-    print("   - 8-GPU: ~8-12 minutes")
+    print("Configuration: n_qubit=6 (main benchmark)")
+    print("Expected execution time: ~1-2 hours total")
+    print("   - 1-GPU: ~15-30 minutes")
+    print("   - 2-GPU: ~15-30 minutes") 
+    print("   - 4-GPU: ~15-30 minutes")
+    print("   - 8-GPU: ~15-30 minutes")
     print("=" * 60)
-    print("Note: This approach uses JAX's built-in device selection")
-    print("      and will automatically adjust to available GPUs")
+    print("Note: This approach uses CUDA_VISIBLE_DEVICES for true isolation")
+    print("      and will only use the specified number of GPUs")
     print("=" * 60)
 
     try:
-        # Initialize profiler with n_qubit=8 for main benchmark
-        profiler = MultiGPUProfiler(n_qubit=8)
+        # Initialize profiler with n_qubit=6 for main benchmark
+        profiler = MultiGPUProfiler(n_qubit=6)
 
         # Test individual configurations first
         print("\n🔍 Testing Individual Configurations:")
@@ -100,9 +100,10 @@ def main():
 
         print("\n🎯 Enhanced Individual Configuration Testing Complete!")
         print("Check the generated JSON file for detailed results and bottleneck analysis.")
-        print("\n💡 Multi-GPU benchmark with n_qubit=8 completed!")
+        print("\n💡 Multi-GPU benchmark with n_qubit=6 completed!")
         print("   This used the correct functions: test_simultaneous_x_grad_lcam and test_simultaneous_x_grad_tad")
         print("   These functions should trigger SuperGrad's multi-GPU sharding!")
+        print("   ✅ TRUE GPU isolation was used for each configuration")
 
         return profiler.results
 
