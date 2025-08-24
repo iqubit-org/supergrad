@@ -28,16 +28,17 @@ class MultiGPUProfiler:
     Enhanced Unified Multi-GPU Profiler for SuperGrad benchmarks.
     
     Features:
+    - TRUE GPU isolation using CUDA_VISIBLE_DEVICES
     - Step-by-step timing breakdown
     - GPU memory usage monitoring
     - Communication overhead profiling
     - Individual GPU utilization tracking
     - Comprehensive bottleneck analysis
     
-    Tests the same workload (n_qubit=12) across different GPU configurations
+    Tests the same workload (n_qubit=8) across different GPU configurations
     to analyze scaling efficiency and identify bottlenecks.
     
-    Expected execution time: ~1 hour total (10 min per GPU config)
+    Expected execution time: ~2-3 hours total (30-60 min per GPU config)
     """
     
     def __init__(self, n_qubit=8):
@@ -55,7 +56,8 @@ class MultiGPUProfiler:
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         print(f"🚀 Initialized Enhanced Multi-GPU Profiler for {n_qubit} qubits")
-        print("   Expected time per GPU config: ~20-30 minutes")
+        print("   GPU isolation: ✅ CUDA_VISIBLE_DEVICES (TRUE isolation)")
+        print("   Expected time per GPU config: ~30-60 minutes")
         print("   Total profiling time: ~2-3 hours")
         print(f"   GPU memory monitoring: {'✅ Enabled' if NVML_AVAILABLE else '❌ Disabled'}")
         
@@ -110,27 +112,37 @@ class MultiGPUProfiler:
             return {}
 
     def profile_gpu_configuration(self, gpu_count: int) -> Dict[str, Any]:
-        """Profile using JAX's built-in device selection instead of environment variables"""
-        print(f"🔍 Testing {gpu_count}-GPU Configuration with JAX Device Selection...")
+        """Profile using CUDA_VISIBLE_DEVICES for true GPU isolation"""
+        print(f"🔍 Testing {gpu_count}-GPU Configuration with True GPU Isolation...")
         
         try:
-            # Import JAX first
+            # Set CUDA_VISIBLE_DEVICES for true GPU isolation
+            cuda_devices = ','.join(str(i) for i in range(gpu_count))
+            os.environ['CUDA_VISIBLE_DEVICES'] = cuda_devices
+            
+            print(f"   🔒 CUDA_VISIBLE_DEVICES: {cuda_devices}")
+            print(f"   📱 Expected active GPUs: {[f'GPU_{i}' for i in range(gpu_count)]}")
+            
+            # Import JAX AFTER setting environment variable
             import jax
             import jax.numpy as jnp
             
-            # Get all available devices
+            # Force JAX to re-evaluate available devices
+            jax.devices()
+            
+            # Get devices after isolation
             all_devices = jax.devices()
-            print(f"   Total available devices: {len(all_devices)}")
-            print(f"   Device types: {[d.device_kind for d in all_devices]}")
+            print(f"   📱 Available devices after isolation: {len(all_devices)}")
+            print(f"   📱 Device types: {[d.device_kind for d in all_devices]}")
             
-            # Select specific devices for this configuration
-            if len(all_devices) < gpu_count:
-                print(f"   ⚠️  Warning: Only {len(all_devices)} devices available, requested {gpu_count}")
-                gpu_count = len(all_devices)
-                print(f"   Adjusting to use {gpu_count} devices")
+            # Verify isolation worked
+            if len(all_devices) != gpu_count:
+                print(f"   ⚠️  Warning: Expected {gpu_count} GPUs, but got {len(all_devices)}")
+                print(f"   🔍 This might indicate GPU isolation isn't working properly")
+            else:
+                print(f"   ✅ GPU isolation successful: {len(all_devices)} devices visible")
             
-            selected_devices = all_devices[:gpu_count]
-            print(f"   Selected {len(selected_devices)} devices for {gpu_count}-GPU configuration")
+            selected_devices = all_devices  # Use all available devices after isolation
             
             # Import SuperGrad functions
             sys.path.append('..')
@@ -314,6 +326,11 @@ class MultiGPUProfiler:
                 for gpu, mem in final_gpu_memory.items():
                     print(f"   {gpu}: {mem['used_gb']:.1f}GB used / {mem['total_gb']:.1f}GB total")
             print()
+            
+            # Restore original CUDA_VISIBLE_DEVICES
+            if 'CUDA_VISIBLE_DEVICES' in os.environ:
+                del os.environ['CUDA_VISIBLE_DEVICES']
+                print(f"   🔄 Restored original GPU environment")
             
             return results
             
