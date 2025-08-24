@@ -134,12 +134,12 @@ def main():
     print("   ✅ Results collected from individual JSON files")
     print("   ✅ Unified scaling analysis")
     print("=" * 60)
-    print("Configuration: n_qubit=6 (main benchmark)")
-    print("Expected execution time: ~1-2 hours total")
-    print("   - 1-GPU: ~15-30 minutes")
-    print("   - 2-GPU: ~15-30 minutes") 
-    print("   - 4-GPU: ~15-30 minutes")
-    print("   - 8-GPU: ~15-30 minutes")
+    print("Configuration: n_qubit=8 (main benchmark)")
+    print("Expected execution time: ~2-3 hours total")
+    print("   - 1-GPU: ~30-60 minutes")
+    print("   - 2-GPU: ~30-60 minutes") 
+    print("   - 4-GPU: ~30-60 minutes")
+    print("   - 8-GPU: ~30-60 minutes")
     print("=" * 60)
     print("Note: Each GPU configuration runs in a separate process")
     print("      ensuring true GPU isolation and no JAX cache conflicts")
@@ -181,7 +181,7 @@ def main():
         with open(unified_file, 'w') as f:
             json.dump({
                 'timestamp': timestamp,
-                'n_qubit': 6,
+                'n_qubit': 8,
                 'results': results
             }, f, indent=2)
         

@@ -98,7 +98,7 @@ def create_mock_benchmark(test_type, n_qubit):
 
 
 # Configuration
-n_qubit = 6
+n_qubit = 8
 print(f"\n🧪 Starting 2-GPU Profiling with n_qubit={n_qubit}")
 print("=" * 60)
 
