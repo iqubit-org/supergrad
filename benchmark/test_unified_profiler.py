@@ -49,11 +49,11 @@ def main():
     print("   ✅ Real-time device count verification")
     print("=" * 60)
     print("Configuration: n_qubit=8 (main benchmark)")
-    print("Expected execution time: ~2-3 hours total")
-    print("   - 1-GPU: ~20-30 minutes")
-    print("   - 2-GPU: ~20-30 minutes") 
-    print("   - 4-GPU: ~20-30 minutes")
-    print("   - 8-GPU: ~20-30 minutes")
+    print("Expected execution time: ~4-6 hours total")
+    print("   - 1-GPU: ~60-90 minutes")
+    print("   - 2-GPU: ~30-45 minutes") 
+    print("   - 4-GPU: ~15-23 minutes")
+    print("   - 8-GPU: ~8-12 minutes")
     print("=" * 60)
     print("Note: This approach uses JAX's built-in device selection")
     print("      and will automatically adjust to available GPUs")
@@ -100,7 +100,9 @@ def main():
 
         print("\n🎯 Enhanced Individual Configuration Testing Complete!")
         print("Check the generated JSON file for detailed results and bottleneck analysis.")
-        print("\n💡 Main benchmark with n_qubit=8 completed!")
+        print("\n💡 Multi-GPU benchmark with n_qubit=8 completed!")
+        print("   This used the correct functions: test_simultaneous_x_grad_lcam and test_simultaneous_x_grad_tad")
+        print("   These functions should trigger SuperGrad's multi-GPU sharding!")
 
         return profiler.results
 

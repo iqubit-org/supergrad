@@ -137,7 +137,7 @@ class MultiGPUProfiler:
             
             # Import the real benchmark functions (qiskit_dynamics is needed)
             try:
-                from test_simultaneous_x import test_simultaneous_x_state_grad_lcam, test_simultaneous_x_grad_lcam
+                from test_simultaneous_x import test_simultaneous_x_grad_lcam, test_simultaneous_x_grad_tad
                 from utils.create_simultaneous_model import create_simultaneous_x
                 print("   ✅ Successfully imported benchmark functions")
             except ImportError as e:
@@ -201,64 +201,15 @@ class MultiGPUProfiler:
             # Get parameter count
             total_params = sum(p.size for p in jax.tree_util.tree_leaves(evo.all_params))
             print(f"   Total parameters: {total_params}")
-            
-            # Step 2: State Gradient Computation
-            print(f"   🧪 Step 2: Profiling State Evolution + Gradient (LCAM) - n_qubit={self.n_qubit}...")
+            # Step 2: Unitary Gradient Computation (LCAM)
+            print(f"   🧪 Step 2: Profiling Unitary Evolution + Gradient (LCAM) - n_qubit={self.n_qubit}...")
             try:
                 start_time = time.time()
                 start_memory = psutil.Process().memory_info().rss / 1024 / 1024
-                
+
                 # Get initial GPU memory if available
                 start_gpu_memory = self.get_gpu_memory_usage()
-                
-                # Run the real benchmark
-                benchmark = create_mock_benchmark('state', self.n_qubit)
-                result = test_simultaneous_x_state_grad_lcam(
-                    benchmark=benchmark,
-                    n_qubit=self.n_qubit
-                )
-                
-                # Wait for completion
-                jax.block_until_ready(result)
-                
-                # Get final metrics
-                end_time = time.time()
-                end_memory = psutil.Process().memory_info().rss / 1024 / 1024
-                end_gpu_memory = self.get_gpu_memory_usage()
-                
-                execution_time = end_time - start_time
-                memory_delta = end_memory - start_memory
-                
-                results['state_grad'] = {
-                    'execution_time': execution_time,
-                    'memory_delta_cpu': memory_delta,
-                    'memory_delta_gpu': 0.0,  # Will be calculated if GPU memory available
-                    'gpu_utilization': self.get_gpu_utilization(),
-                    'success': True
-                }
-                
-                results['step_timing']['state_gradient'] = execution_time
-                results['memory_profiles']['state_gradient'] = {
-                    'start_mb': start_memory,
-                    'end_mb': end_memory,
-                    'delta_mb': memory_delta,
-                    'start_gpu_memory': start_gpu_memory,
-                    'end_gpu_memory': end_gpu_memory
-                }
-                
-                print(f"   ✅ State gradient completed: {execution_time:.2f}s (Memory: +{memory_delta:.1f}MB)")
-                
-            except Exception as e:
-                print(f"   ❌ State gradient failed: {e}")
-                results['state_grad'] = {'success': False, 'error': str(e)}
-            
-            # Step 3: Unitary Gradient Computation
-            print(f"   🧪 Step 3: Profiling Unitary Evolution + Gradient (LCAM) - n_qubit={self.n_qubit}...")
-            try:
-                start_time = time.time()
-                start_memory = psutil.Process().memory_info().rss / 1024 / 1024
-                start_gpu_memory = self.get_gpu_memory_usage()
-                
+
                 # Run the real benchmark
                 benchmark = create_mock_benchmark('unitary', self.n_qubit)
                 result = test_simultaneous_x_grad_lcam(
@@ -277,7 +228,7 @@ class MultiGPUProfiler:
                 execution_time = end_time - start_time
                 memory_delta = end_memory - start_memory
                 
-                results['unitary_grad'] = {
+                results['unitary_grad_lcam'] = {
                     'execution_time': execution_time,
                     'memory_delta_cpu': memory_delta,
                     'memory_delta_gpu': 0.0,  # Will be calculated if GPU memory available
@@ -285,8 +236,8 @@ class MultiGPUProfiler:
                     'success': True
                 }
                 
-                results['step_timing']['unitary_gradient'] = execution_time
-                results['memory_profiles']['unitary_gradient'] = {
+                results['step_timing']['unitary_gradient_lcam'] = execution_time
+                results['memory_profiles']['unitary_gradient_lcam'] = {
                     'start_mb': start_memory,
                     'end_mb': end_memory,
                     'delta_mb': memory_delta,
@@ -294,11 +245,59 @@ class MultiGPUProfiler:
                     'end_gpu_memory': end_gpu_memory
                 }
                 
-                print(f"   ✅ Unitary gradient completed: {execution_time:.2f}s (Memory: +{memory_delta:.1f}MB)")
+                print(f"   ✅ Unitary gradient (LCAM) completed: {execution_time:.2f}s (Memory: +{memory_delta:.1f}MB)")
                 
             except Exception as e:
-                print(f"   ❌ Unitary gradient failed: {e}")
-                results['unitary_grad'] = {'success': False, 'error': str(e)}
+                print(f"   ❌ Unitary gradient (LCAM) failed: {e}")
+                results['unitary_grad_lcam'] = {'success': False, 'error': str(e)}
+            
+            # Step 3: Unitary Gradient Computation (TAD)
+            print(f"   🧪 Step 3: Profiling Unitary Evolution + Gradient (TAD) - n_qubit={self.n_qubit}...")
+            try:
+                start_time = time.time()
+                start_memory = psutil.Process().memory_info().rss / 1024 / 1024
+                start_gpu_memory = self.get_gpu_memory_usage()
+                
+                # Run the real benchmark
+                benchmark = create_mock_benchmark('unitary', self.n_qubit)
+                result = test_simultaneous_x_grad_tad(
+                    benchmark=benchmark,
+                    n_qubit=self.n_qubit
+                )
+                
+                # Wait for completion
+                jax.block_until_ready(result)
+                
+                # Get final metrics
+                end_time = time.time()
+                end_memory = psutil.Process().memory_info().rss / 1024 / 1024
+                end_gpu_memory = self.get_gpu_memory_usage()
+                
+                execution_time = end_time - start_time
+                memory_delta = end_memory - start_memory
+                
+                results['unitary_grad_tad'] = {
+                    'execution_time': execution_time,
+                    'memory_delta_cpu': memory_delta,
+                    'memory_delta_gpu': 0.0,  # Will be calculated if GPU memory available
+                    'gpu_utilization': self.get_gpu_utilization(),
+                    'success': True
+                }
+                
+                results['step_timing']['unitary_gradient_tad'] = execution_time
+                results['memory_profiles']['unitary_gradient_tad'] = {
+                    'start_mb': start_memory,
+                    'end_mb': end_memory,
+                    'delta_mb': memory_delta,
+                    'start_gpu_memory': start_gpu_memory,
+                    'end_gpu_memory': end_gpu_memory
+                }
+                
+                print(f"   ✅ Unitary gradient (TAD) completed: {execution_time:.2f}s (Memory: +{memory_delta:.1f}MB)")
+                
+            except Exception as e:
+                print(f"   ❌ Unitary gradient (TAD) failed: {e}")
+                results['unitary_grad_tad'] = {'success': False, 'error': str(e)}
             
             # Final memory profile
             final_memory = psutil.Process().memory_info().rss / 1024 / 1024
