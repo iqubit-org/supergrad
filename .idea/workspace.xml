@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2fe5892b-2af4-4721-a2ff-0283ba9d033c" name="Changes" comment="" />
+    <list default="true" id="2fe5892b-2af4-4721-a2ff-0283ba9d033c" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/benchmark/profile_4gpu.py" beforeDir="false" afterPath="$PROJECT_DIR$/benchmark/profile_4gpu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benchmark/profile_8gpu.py" beforeDir="false" afterPath="$PROJECT_DIR$/benchmark/profile_8gpu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/benchmark/test_unified_profiler.py" beforeDir="false" afterPath="$PROJECT_DIR$/benchmark/test_unified_profiler.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

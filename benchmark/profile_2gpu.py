@@ -20,6 +20,15 @@ print("   Expected GPUs: 2 (GPU_0, GPU_1)")
 # Now import JAX and verify isolation
 import jax
 import jax.numpy as jnp
+import jax.profiler
+
+# Import JAX profiler utilities
+from jax_profiler_utils import (
+    setup_tensorboard_logging, 
+    run_with_jax_profiler, 
+    print_tensorboard_summary,
+    create_profiled_test_function
+)
 
 print("\n📱 JAX Device Verification:")
 print(f"   JAX devices found: {len(jax.devices())}")
@@ -137,26 +146,35 @@ print(f"   Total parameters: {total_params}")
 results['step_timing']['system_creation'] = creation_time
 results['total_params'] = total_params
 
-# Step 2: Unitary Gradient (LCAM)
+# Setup TensorBoard trace logging
+tensorboard_log_dir = setup_tensorboard_logging(2)
+
+# Step 2: Unitary Gradient (LCAM) with JAX Profiler
 print("\n🧪 Step 2: Profiling Unitary Evolution + Gradient (LCAM)...")
 try:
     start_time = time.time()
     benchmark = create_mock_benchmark('unitary', n_qubit)
     
-    result = test_simultaneous_x_grad_lcam(
-        benchmark=benchmark,
-        n_qubit=n_qubit
+    # Create profiled test function
+    profiled_lcam_test = create_profiled_test_function(
+        test_simultaneous_x_grad_lcam, benchmark, n_qubit
     )
     
-    # Wait for completion
-    jax.block_until_ready(result)
+    # Run with JAX profiler
+    result, trace_dir = run_with_jax_profiler(
+        profiled_lcam_test, 
+        "lcam_trace", 
+        tensorboard_log_dir,
+        "LCAM gradient computation on 2 GPUs"
+    )
     
     execution_time = time.time() - start_time
     print(f"✅ Unitary gradient (LCAM) completed: {execution_time:.2f}s")
     
     results['unitary_grad_lcam'] = {
         'execution_time': execution_time,
-        'success': True
+        'success': True,
+        'tensorboard_trace': trace_dir
     }
     results['step_timing']['unitary_gradient_lcam'] = execution_time
     
@@ -169,26 +187,32 @@ except Exception as e:
         'execution_time': execution_time
     }
 
-# Step 3: Unitary Gradient (TAD)
+# Step 3: Unitary Gradient (TAD) with JAX Profiler
 print("\n🧪 Step 3: Profiling Unitary Evolution + Gradient (TAD)...")
 try:
     start_time = time.time()
     benchmark = create_mock_benchmark('unitary', n_qubit)
     
-    result = test_simultaneous_x_grad_tad(
-        benchmark=benchmark,
-        n_qubit=n_qubit
+    # Create profiled test function
+    profiled_tad_test = create_profiled_test_function(
+        test_simultaneous_x_grad_tad, benchmark, n_qubit
     )
     
-    # Wait for completion
-    jax.block_until_ready(result)
+    # Run with JAX profiler
+    result, trace_dir = run_with_jax_profiler(
+        profiled_tad_test, 
+        "tad_trace", 
+        tensorboard_log_dir,
+        "TAD gradient computation on 2 GPUs"
+    )
     
     execution_time = time.time() - start_time
     print(f"✅ Unitary gradient (TAD) completed: {execution_time:.2f}s")
     
     results['unitary_grad_tad'] = {
         'execution_time': execution_time,
-        'success': True
+        'success': True,
+        'tensorboard_trace': trace_dir
     }
     results['step_timing']['unitary_gradient_tad'] = execution_time
     
@@ -208,6 +232,9 @@ for gpu, mem in final_gpu_memory.items():
     print(f"   {gpu}: {mem['used_gb']:.1f}GB used / {mem['total_gb']:.1f}GB total")
 
 results['final_gpu_memory'] = final_gpu_memory
+
+# Print TensorBoard summary
+print_tensorboard_summary(results, tensorboard_log_dir)
 
 # Save results
 output_file = 'profile_2gpu_results.json'

@@ -28,8 +28,6 @@ def run_gpu_profiler(gpu_count):
         start_time = time.time()
         result = subprocess.run(
             [sys.executable, script_name],
-            capture_output=True,
-            text=True,
             env=os.environ.copy()
         )
         end_time = time.time()
@@ -46,8 +44,7 @@ def run_gpu_profiler(gpu_count):
             return result_data
         else:
             print(f"   ❌ No result file found: {result_file}")
-            print(f"   stdout: {result.stdout}")
-            print(f"   stderr: {result.stderr}")
+            print(f"   Subprocess return code: {result.returncode}")
             return {'error': 'No result file generated'}
             
     except Exception as e:
@@ -84,8 +81,8 @@ def analyze_scaling(results):
     print(f"   LCAM: {lcam_baseline_time:.2f}s")
     print(f"   TAD: {tad_baseline_time:.2f}s")
     
-    # Analyze each configuration
-    for gpu_count in [2, 4, 8]:
+    # Analyze each configuration (skip 2-GPU as it's disabled)
+    for gpu_count in [4, 8]:
         config_key = f'{gpu_count}gpu'
         config = results.get(config_key, {})
         
@@ -135,9 +132,9 @@ def main():
     print("   ✅ Unified scaling analysis")
     print("=" * 60)
     print("Configuration: n_qubit=8 (main benchmark)")
-    print("Expected execution time: ~2-3 hours total")
+    print("Expected execution time: ~2-2.5 hours total")
     print("   - 1-GPU: ~30-60 minutes")
-    print("   - 2-GPU: ~30-60 minutes") 
+    print("   - 2-GPU: SKIPPED (script exists but testing disabled)")
     print("   - 4-GPU: ~30-60 minutes")
     print("   - 8-GPU: ~30-60 minutes")
     print("=" * 60)
@@ -160,9 +157,9 @@ def main():
         
         results['1gpu'] = result_1gpu
         
-        # Test 2-GPU
-        result_2gpu = run_gpu_profiler(2)
-        results['2gpu'] = result_2gpu
+        # Skip 2-GPU testing (script exists but testing is disabled)
+        # result_2gpu = run_gpu_profiler(2)
+        # results['2gpu'] = result_2gpu
         
         # Test 4-GPU
         result_4gpu = run_gpu_profiler(4)
