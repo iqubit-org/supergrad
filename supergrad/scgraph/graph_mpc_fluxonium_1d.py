@@ -158,9 +158,9 @@ class MPCFluxonium1D(SCGraph):
         return dic2
 
     def create_cr_pulse(self,
-                        ix_control_list: int,
-                        ix_target_list: int,
-                        tg_list: int,
+                        ix_control_list: list[int],
+                        ix_target_list: list[int],
+                        tg_list: list[float],
                         add_random: bool,
                         ar_crosstalk=None,
                         pulse_type: str = "cos",
@@ -260,8 +260,8 @@ class MPCFluxonium1D(SCGraph):
         return transform_matrix
 
     def create_single_qubit_pulse(self,
-                                  ix_qubit_list: int,
-                                  tg_list: int,
+                                  ix_qubit_list: list[int],
+                                  tg_list: list[float],
                                   add_random: bool,
                                   ar_crosstalk=None,
                                   factor=0.5,
