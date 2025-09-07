@@ -47,7 +47,7 @@ setup(
     extras_require={
         # Used for benchmark
         'benchmark': [
-            'qiskit_dynamics', 'qutip', 'pytest', 'pytest-benchmark',
+            'qiskit_dynamics', 'qiskit<2.0', 'qutip', 'pytest', 'pytest-benchmark',
             'scqubits', 'psutil'
         ],
         'docs': ['qutip', 'qutip-qip'],
