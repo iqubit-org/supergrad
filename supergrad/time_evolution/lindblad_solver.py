@@ -117,7 +117,7 @@ def _mesolve(rho0, tlist, h_td, lind: LindbladObj, args, solver, options):
             lind_td.add_liouvillian(ham)
             return lind_td
 
-        rho_evo = ode_expm(_func, rho0, tlist, **options)
+        rho_evo = ode_expm(_func, rho0, tlist, **dict(options))
     elif solver == 'odeint':
         if isinstance(rho0, KronObj):
             rho0 = rho0.full()
@@ -128,7 +128,7 @@ def _mesolve(rho0, tlist, h_td, lind: LindbladObj, args, solver, options):
             lind_td.add_liouvillian(ham)
             return lind_td @ rho
 
-        rho_evo = odeint(_func, rho0, tlist, **options)
+        rho_evo = odeint(_func, rho0, tlist, **dict(options))
     else:
         raise ValueError('Unknown ode solver.')
 
@@ -160,6 +160,31 @@ def mesolve_final_states_w_basis_trans(hamiltonian,
         kwargs:
             Keyword arguments will be pass to `supergrad.time_evolution.mesolve`
     """
+
+    def _pre_transform(rho, U):
+        """Apply pre-compensation or basis-forward transform: U ρ U†
+        Supports (D,D) or (B,D,D)."""
+        if U is None:
+            return rho
+        if rho.ndim == 2:  # (D,D)
+            return U @ rho @ U.conj().T
+        elif rho.ndim == 3:  # (B,D,D)
+            return jnp.einsum('ij,bjk,lk->bil', U, rho, U.conj().T)
+        else:
+            raise ValueError(f"Unsupported rho shape {rho.shape}")
+
+    def _post_transform(rho, U):
+        """Apply post-compensation or basis-back transform: U† ρ U
+        Supports (D,D) or (B,D,D)."""
+        if U is None:
+            return rho
+        if rho.ndim == 2:  # (D,D)
+            return U.conj().T @ rho @ U
+        elif rho.ndim == 3:  # (B,D,D)
+            return jnp.einsum('ij,bjk,lk->bil', U.conj().T, rho, U)
+        else:
+            raise ValueError(f"Unsupported rho shape {rho.shape}")
+
     # evolution in the product basis with cycle transform
     if transform_matrix is not None:
         # Evolve in multi-qubit eigenbasis
@@ -169,15 +194,30 @@ def mesolve_final_states_w_basis_trans(hamiltonian,
             # Fix bug in gradient computation with multi-device
             # we use jit to tell the compiler transform_matrix must be provided
             # before the evolution
-            rho_list = transform_matrix @ rho_list @ transform_matrix.conjugate(
-            ).transpose()
+            rho_list = _pre_transform(rho_list, transform_matrix)
             res = mesolve(hamiltonian, rho_list, tlist, **kwargs)
-            return jnp.conj(transform_matrix).T @ res[:,
-                                                      -1, :] @ transform_matrix
+
+            # Shape-aware final state extraction
+            if res.ndim == 3:  # Single density matrix case: (T, D, D)
+                final_rho = res[-1, :, :]  # (D, D)
+            elif res.ndim == 4:  # Batch case: (B, T, D, D)
+                final_rho = res[:, -1, :, :]  # (B, D, D)
+            else:
+                raise ValueError(f"Unexpected mesolve output shape: {res.shape}")
+
+            return _post_transform(final_rho, transform_matrix)
 
         density_array = _evolving_rhos(transform_matrix, rho_list)
     else:
         # Evolve in multi-qubit product basis
         res = mesolve(hamiltonian, rho_list, tlist, **kwargs)
-        density_array = res[:, -1, :]
+
+        # Shape-aware final state extraction
+        if res.ndim == 3:  # Single density matrix case: (T, D, D)
+            density_array = res[-1, :, :]  # (D, D)
+        elif res.ndim == 4:  # Batch case: (B, T, D, D)
+            density_array = res[:, -1, :, :]  # (B, D, D)
+        else:
+            raise ValueError(f"Unexpected mesolve output shape: {res.shape}")
+
     return density_array
