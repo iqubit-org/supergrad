@@ -185,6 +185,37 @@ def create_state_init(ar_truncated_dim: np.ndarray,
     return np.array(list_state_init), ar_ix
 
 
+def create_density_init(ar_truncated_dim: np.ndarray,
+                        ar_ix_max: np.ndarray):
+    """
+    Create initial density matrices (computational-basis projectors) for an N-partite system.
+
+    This function enumerates computational-basis kets and returns their density matrices |ψ⟩⟨ψ|
+    in a batch, ready for Lindblad master equation evolution. It mirrors the functionality of
+    `create_state_init` but returns density matrices instead of state vectors.
+
+    Args:
+        ar_truncated_dim: the number of bands in each tensor
+        ar_ix_max: [N,2] array as (qubit index, band maximum band index)
+            to iterate all bands from 0 to maximum.
+            [[0, 2], [1,2]] will create `|` 00> `|` 01> `|` 10> `|` 11> states.
+
+    Returns:
+        rho_list: np.ndarray, shape (B, D, D)
+            Batch of computational-basis density matrices, one per enumerated basis state.
+            Here D = prod(ar_truncated_dim), B = number of enumerated basis states.
+            Each density matrix represents a pure computational-basis state |i⟩⟨i|.
+        ar_ix: np.ndarray, shape (B, N)
+            The same basis-index array returned by `create_state_init`.
+    """
+    # Reuse the existing state enumerator: shape (B, D, 1) because `basis(...)` returns column vectors
+    states, ar_ix = create_state_init(np.asarray(ar_truncated_dim), ar_ix_max)  # (B, D, 1)
+    # Flatten to (B, D) then batched outer product → (B, D, D)
+    states = np.asarray(states).reshape(states.shape[0], -1)  # (B, D)
+    rho_list = np.einsum('bi,bj->bij', states, np.conj(states))  # (B, D, D)
+    return rho_list, ar_ix
+
+
 def compute_average_photon(power: float,
                            freq: float,
                            qc: Optional[float] = None,
