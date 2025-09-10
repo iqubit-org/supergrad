@@ -117,7 +117,7 @@ def _mesolve(rho0, tlist, h_td, lind: LindbladObj, args, solver, options):
             lind_td.add_liouvillian(ham)
             return lind_td
 
-        rho_evo = ode_expm(_func, rho0, tlist, **options)
+        rho_evo = ode_expm(_func, rho0, tlist, **dict(options))
     elif solver == 'odeint':
         if isinstance(rho0, KronObj):
             rho0 = rho0.full()
@@ -128,7 +128,7 @@ def _mesolve(rho0, tlist, h_td, lind: LindbladObj, args, solver, options):
             lind_td.add_liouvillian(ham)
             return lind_td @ rho
 
-        rho_evo = odeint(_func, rho0, tlist, **options)
+        rho_evo = odeint(_func, rho0, tlist, **dict(options))
     else:
         raise ValueError('Unknown ode solver.')
 

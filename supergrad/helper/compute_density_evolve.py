@@ -40,7 +40,6 @@ class DensityEvolve(Helper):
         options: the arguments will be passed to solver.
             See `supergrad.time_evolution.mesolve`.
         c_ops: List of collapse operators for dissipation channels.
-        dissipation_rates: Dictionary of dissipation rates for each channel.
     """
 
     def __init__(self,
@@ -57,7 +56,6 @@ class DensityEvolve(Helper):
                      'trotter_order': 1
                  },
                  c_ops=None,
-                 dissipation_rates=None,
                  *args,
                  **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -78,7 +76,6 @@ class DensityEvolve(Helper):
         self.solver = solver
         self.options = options
         self.c_ops = c_ops if c_ops is not None else []
-        self.dissipation_rates = dissipation_rates if dissipation_rates is not None else {}
         self.rho_list = None
 
     def _init_quantum_system(self):
@@ -118,14 +115,15 @@ class DensityEvolve(Helper):
             all_params = hk.data_structures.merge(initial_comp, all_params)
         return all_params
 
-    def _prepare_initial_density_matrices(self, psi_list=None):
+    def _prepare_initial_density_matrices(self, psi_list=None, _remove_compensation=False):
         """Prepare the initial density matrices for time evolution.
 
-        Converts state vectors |ψ⟩ to density matrices |ψ⟩⟨ψ|.
+        Converts state vectors |ψ⟩ to density matrices |ψ⟩⟨ψ| and applies pre-compensation.
 
         Args:
             psi_list (list, optional): The list of states for evolution. If None,
                 all the states in computation basis will be used.
+            _remove_compensation (bool): Whether to skip pre-compensation (for debug use).
         """
         if psi_list is None:
             states_config = []
@@ -150,6 +148,13 @@ class DensityEvolve(Helper):
         else:
             raise ValueError(f"Invalid psi_list type: {type(psi_list)}")
 
+        # Apply pre-compensation if available
+        if not _remove_compensation and self.compensation_option != 'no_comp':
+            pre_u, _ = self._construct_compensation_unitaries()
+            if pre_u is not None:
+                # Apply pre-compensation to each density matrix: U_pre @ rho @ U_pre†
+                self.rho_list = self._rho_similar_transform(self.rho_list, pre_u)
+
     def construct_hamiltonian_and_pulseshape(self):
         """Constructing the Hamiltonian and pulseshape for time evolution.
 
@@ -161,25 +166,46 @@ class DensityEvolve(Helper):
         return self.hilbertspace.idling_hamiltonian_in_prod_basis(
         ), self.hamiltonian_component_and_pulseshape, self.pulse_endtime
 
-    def _construct_compensation_function(self):
-        """Constructing the compensation matrix for virtual compensation.
-
-        Adapted for density matrices: U† @ rho @ U instead of U @ psi.
+    def _construct_compensation_unitaries(self):
+        """Construct pre and post compensation unitaries.
 
         Returns:
-            Callable: the function that add compensation before and after the
-                time evolution density matrix.
+            tuple: (pre_u, post_u) or (None, None) if no compensation
         """
         if self.compensation_option in ['only_vz', 'arbit_single']:
+            pre_u = tensor(*self.pre_unitaries)
             post_u = tensor(*self.post_unitaries)
-            if self.compensation_option == 'arbit_single':
-                # For density matrices: U† @ rho @ U
-                return lambda sim_rho: post_u.conj().T @ sim_rho @ post_u
-            else:
-                # For Z-rotation: e^(-iφZ) @ rho @ e^(iφZ)
-                return lambda sim_rho: (post_u.conj() * sim_rho.T).T * post_u
+            return pre_u, post_u
+        return None, None
+
+    def _rho_similar_transform(self, rho, U):
+        """Apply similarity transformation U† ρ U to density matrix.
+
+        Supports multiple tensor shapes:
+        - (N,N): Single density matrix
+        - (B,N,N): Batch of density matrices
+        - (T,B,N,N): Time series of batches
+
+        Args:
+            rho: Density matrix tensor
+            U: Unitary transformation matrix
+
+        Returns:
+            Transformed density matrix tensor
+        """
+        if U is None:
+            return rho
+
+        if rho.ndim == 2:
+            return U.conj().T @ rho @ U
+        elif rho.ndim == 3:
+            # (B,N,N)
+            return jnp.einsum('ij,bjk,lk->bil', U.conj().T, rho, U)
+        elif rho.ndim == 4:
+            # (T,B,N,N)
+            return jnp.einsum('ij,tbjk,lk->tbil', U.conj().T, rho, U)
         else:
-            return None
+            raise ValueError(f"Unsupported rho ndim: {rho.ndim}")
 
     def eigen_basis(self,
                     transform_matrix=None,
@@ -206,7 +232,7 @@ class DensityEvolve(Helper):
         ham_static = self.hilbertspace.idling_hamiltonian_in_prod_basis()
 
         ham = [ham_static, *self.hamiltonian_component_and_pulseshape]
-        self._prepare_initial_density_matrices(psi_list)
+        self._prepare_initial_density_matrices(psi_list, _remove_compensation)
         self.tlist = [0, self.pulse_endtime]
 
         # Use mesolve_final_states_w_basis_trans for density matrices
@@ -219,9 +245,10 @@ class DensityEvolve(Helper):
                                                      options=self.options,
                                                      **kwargs)
         if not _remove_compensation:
-            comp_func = self._construct_compensation_function()
-            if comp_func is not None:
-                sim_rho = comp_func(sim_rho)
+            _, post_u = self._construct_compensation_unitaries()
+            if post_u is not None:
+                # Apply post-compensation: U_post† @ rho @ U_post
+                sim_rho = self._rho_similar_transform(sim_rho, post_u)
         return sim_rho
 
     def product_basis(self,
@@ -241,7 +268,7 @@ class DensityEvolve(Helper):
         ham_static = self.hilbertspace.idling_hamiltonian_in_prod_basis()
 
         ham = [ham_static, *self.hamiltonian_component_and_pulseshape]
-        self._prepare_initial_density_matrices(psi_list)
+        self._prepare_initial_density_matrices(psi_list, _remove_compensation)
         self.tlist = [0, self.pulse_endtime]
 
         # Use mesolve_final_states_w_basis_trans for density matrices
@@ -254,9 +281,10 @@ class DensityEvolve(Helper):
                                                      options=self.options,
                                                      **kwargs)
         if not _remove_compensation:
-            comp_func = self._construct_compensation_function()
-            if comp_func is not None:
-                sim_rho = comp_func(sim_rho)
+            _, post_u = self._construct_compensation_unitaries()
+            if post_u is not None:
+                # Apply post-compensation: U_post† @ rho @ U_post
+                sim_rho = self._rho_similar_transform(sim_rho, post_u)
         return sim_rho
 
     def eigen_basis_trajectory(self,
@@ -286,7 +314,7 @@ class DensityEvolve(Helper):
         ham = [ham_static, *self.hamiltonian_component_and_pulseshape]
 
         transform_matrix = u_to_eigen
-        self._prepare_initial_density_matrices(psi_list)
+        self._prepare_initial_density_matrices(psi_list, _remove_compensation=False)
 
         # Transform density matrices to eigenbasis: U @ rho @ U†
         rho_list_eigen = transform_matrix @ self.rho_list @ transform_matrix.conj().T
@@ -331,7 +359,7 @@ class DensityEvolve(Helper):
         ham_static = self.hilbertspace.idling_hamiltonian_in_prod_basis()
 
         ham = [ham_static, *self.hamiltonian_component_and_pulseshape]
-        self._prepare_initial_density_matrices(psi_list)
+        self._prepare_initial_density_matrices(psi_list, _remove_compensation=False)
         rho_list = self.rho_list
 
         if tlist is None:
