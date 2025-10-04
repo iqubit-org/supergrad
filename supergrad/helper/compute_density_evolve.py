@@ -10,11 +10,10 @@ from supergrad.scgraph.graph import SCGraph
 
 
 class DensityEvolve(Helper):
-    r"""Helper for constructing open quantum system time-evolution computing functions
+    """Helper for constructing open quantum system time-evolution computing functions
     based on the graph which contains all information about qubits, pulses, and
     dissipation channels. This class works directly with density matrices. The functions
     constructed this way are pure and can be transformed by Jax.
-
     Args:
         graph (SCGraph): The graph containing both Hamiltonian and control
             parameters.
@@ -53,7 +52,6 @@ class DensityEvolve(Helper):
                  coupler_subsystem=[],
                  solver='ode_expm',
                  options={
-                     'astep': 2000,
                      'trotter_order': 1
                  },
                  c_ops=None,
@@ -129,14 +127,12 @@ class DensityEvolve(Helper):
 
     def _prepare_initial_density_matrices(self, rho_list=None, _remove_compensation=False):
         """Prepare the initial density matrices for time evolution.
-
         Args:
             rho_list (jnp.ndarray, optional): Custom density matrices for evolution.
                 Shape should be (B, D, D) where B is batch size and D is Hilbert space dimension.
                 If None, computational-basis density matrices will be created automatically.
             _remove_compensation (bool): Whether to skip pre-compensation (for debug use).
                 Default is False. When True, compensation is not applied even if enabled.
-
         Returns:
             None: This method modifies `self.rho_list` in place.
         """
@@ -169,7 +165,6 @@ class DensityEvolve(Helper):
 
     def construct_hamiltonian_and_pulseshape(self):
         """Constructing the Hamiltonian and pulseshape for time evolution.
-
         Returns:
             (KronObj, list, float): The static Hamiltonian, the list of pair
                 containing the time-dependent components of the Hamiltonian and
@@ -180,7 +175,6 @@ class DensityEvolve(Helper):
 
     def _construct_compensation_function(self):
         """Constructing the compensation matrix for virtual compensation.
-
         Returns:
             Callable: the function that add compensation before and after the
                 time evolution unitary.
@@ -198,7 +192,6 @@ class DensityEvolve(Helper):
                     _remove_compensation=False,
                     **kwargs):
         """Running the time evolution in the eigenbasis.
-
         Args:
             tlist: list of time steps for evolution. Required parameter.
             transform_matrix: pre-computed transform matrix,
@@ -221,8 +214,10 @@ class DensityEvolve(Helper):
         self._prepare_initial_density_matrices(rho_list, _remove_compensation)
 
         if tlist is None:
-            raise ValueError("tlist parameter is required for time evolution. "
-                             "Please provide a list of time points (e.g., np.linspace(0, 10, 100)).")
+            raise ValueError(
+                "tlist parameter is required for time evolution. "
+                "Please provide a list of time points (e.g., np.linspace(0, 10, 100))."
+            )
         else:
             self.tlist = tlist
 
@@ -257,7 +252,6 @@ class DensityEvolve(Helper):
                       _remove_compensation=False,
                       **kwargs):
         """Running the time evolution in the product basis.
-
         Args:
             tlist: list of time steps for evolution. Required parameter.
             rho_list: the list of density matrices for evolution. If None,
@@ -273,8 +267,10 @@ class DensityEvolve(Helper):
         self._prepare_initial_density_matrices(rho_list, _remove_compensation)
 
         if tlist is None:
-            raise ValueError("tlist parameter is required for time evolution. "
-                             "Please provide a list of time points (e.g., np.linspace(0, 10, 100)).")
+            raise ValueError(
+                "tlist parameter is required for time evolution. "
+                "Please provide a list of time points (e.g., np.linspace(0, 10, 100))."
+            )
         else:
             self.tlist = tlist
 
@@ -310,7 +306,6 @@ class DensityEvolve(Helper):
                                _remove_compensation=False,
                                **kwargs):
         """Computing the time evolution trajectory in the eigen basis.
-
         Args:
             tlist: list of time steps.
             rho_list: the list of density matrices for evolution. If None,
@@ -344,8 +339,10 @@ class DensityEvolve(Helper):
         rho0_e = self._sim_pre(rho0, u_to_eigen)  # (B,D,D)
 
         if tlist is None:
-            raise ValueError("tlist parameter is required for time evolution. "
-                             "Please provide a list of time points (e.g., np.linspace(0, 10, 100)).")
+            raise ValueError(
+                "tlist parameter is required for time evolution. "
+                "Please provide a list of time points (e.g., np.linspace(0, 10, 100))."
+            )
         else:
             self.tlist = tlist
 
@@ -354,7 +351,7 @@ class DensityEvolve(Helper):
                          self.tlist,
                          c_ops=self.c_ops,
                          solver=self.solver,
-                         options=self._normalize_astep(self.options, self.tlist),
+                         options=self.options,
                          **kwargs)
 
         # basis back: eigen -> product
@@ -381,7 +378,6 @@ class DensityEvolve(Helper):
                                  _remove_compensation=False,
                                  **kwargs):
         """Computing the time evolution trajectory in the product basis.
-
         Args:
             tlist: list of time steps.
             rho_list: the list of density matrices for evolution. If None,
@@ -403,8 +399,10 @@ class DensityEvolve(Helper):
             rho0 = self._sim_pre(rho0, pre_u)
 
         if tlist is None:
-            raise ValueError("tlist parameter is required for time evolution. "
-                             "Please provide a list of time points (e.g., np.linspace(0, 10, 100)).")
+            raise ValueError(
+                "tlist parameter is required for time evolution. "
+                "Please provide a list of time points (e.g., np.linspace(0, 10, 100))."
+            )
         else:
             self.tlist = tlist
 
@@ -413,7 +411,7 @@ class DensityEvolve(Helper):
                        self.tlist,
                        c_ops=self.c_ops,
                        solver=self.solver,
-                       options=self._normalize_astep(self.options, self.tlist),
+                       options=self.options,
                        **kwargs)  # (T,D,D) or (B,T,D,D)
 
         # Post compensation
@@ -475,13 +473,3 @@ class DensityEvolve(Helper):
         else:
             # For higher dimensional arrays, transpose the last two dimensions
             return (rho + jnp.conj(rho).transpose(-1, -2)) / 2
-
-    def _normalize_astep(self, options, tlist):
-        """Normalize astep with safety checks.
-        """
-        if len(tlist) <= 1:
-            return options
-        options = options.copy()
-        if options.get("astep", 0) > 0:
-            options["astep"] = max(1, options["astep"] // (len(tlist) - 1))
-        return options
