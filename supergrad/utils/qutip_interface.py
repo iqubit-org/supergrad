@@ -33,6 +33,20 @@ def to_qutip_operator(superObj: KronObj):
     return sum(data)
 
 
+def to_qutip_collapse_operators(c_ops):
+    """Convert a list of collapse operators from SuperGrad format to QuTiP format.
+    Args:
+        c_ops: List of collapse operators in SuperGrad KronObj format.
+
+    Returns:
+        List of collapse operators in QuTiP Qobj format.
+    """
+    qutip_c_ops = []
+    for c_op in c_ops:
+        qutip_c_ops.append(to_qutip_operator(c_op))
+    return qutip_c_ops
+
+
 def to_qutip_operator_function_pair(hamiltonian_component_and_pulseshape):
     """Convert the drive Hamiltonian to qutip operator-function pairs.
 

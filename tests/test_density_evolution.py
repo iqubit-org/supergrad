@@ -80,10 +80,6 @@ class DensityEvolveHelper(supergrad.Helper):
         """Ensure hermiticity."""
         return self.density_evo._ensure_hermiticity(rho)
 
-    def normalize_astep(self, options, tlist):
-        """Normalize astep parameter."""
-        return self.density_evo._normalize_astep(options, tlist)
-
     def prepare_initial(self, rho_list=None):
         """Prepare initial density matrices."""
         return self.density_evo._prepare_initial_density_matrices(rho_list=rho_list)
@@ -178,28 +174,6 @@ def test_hermiticity_preservation():
     rho_fixed = helper.ensure_hermiticity(params, rho)
 
     assert jnp.allclose(rho_fixed, jnp.conj(rho_fixed).T)
-
-
-def test_normalize_astep():
-    """Test astep normalization with safety checks."""
-    helper = DensityEvolveHelper()
-    params = helper.ls_params()
-
-    options = {'astep': 1000}
-    tlist = [0, 1, 2, 3, 4]  # 5 time points
-
-    normalized_options = helper.normalize_astep(params, options, tlist)
-    assert normalized_options['astep'] == 250  # 1000 // 4
-
-    # Test edge case: single time point
-    tlist_single = [0]
-    normalized_single = helper.normalize_astep(params, options, tlist_single)
-    assert normalized_single == options  # Should remain unchanged
-
-    # Test edge case: empty astep
-    options_empty = {}
-    normalized_empty = helper.normalize_astep(params, options_empty, tlist)
-    assert normalized_empty == options_empty
 
 
 def test_prepare_initial_density_matrices():
@@ -647,7 +621,8 @@ def test_eigen_basis_batch_density_matrices_shape():
     # Verify all density matrices are valid
     for i in range(result.shape[0]):
         assert jnp.isclose(jnp.trace(result[i]), 1.0, atol=1e-2), (
-            f"Trace should be 1 for batch {i}, got {jnp.trace(result[i])}")
+            f"Trace should be 1 for batch {i}, got {jnp.trace(result[i])}"
+        )
         assert jnp.allclose(result[i], result[i].conj().T), f"Should be Hermitian for batch {i}"
 
 
@@ -669,7 +644,8 @@ def test_product_basis_batch_density_matrices_shape():
     # Verify all density matrices are valid
     for i in range(result.shape[0]):
         assert jnp.isclose(jnp.trace(result[i]), 1.0, atol=1e-2), (
-            f"Trace should be 1 for batch {i}, got {jnp.trace(result[i])}")
+            f"Trace should be 1 for batch {i}, got {jnp.trace(result[i])}"
+        )
         assert jnp.allclose(result[i], result[i].conj().T), f"Should be Hermitian for batch {i}"
 
 
