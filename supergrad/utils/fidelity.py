@@ -118,6 +118,8 @@ def conv_sq_u_to_angles(u, canonical: bool = True):
         phig = jnp.angle(expphig_cos_gamma ** 2) / 2
         expphig = jnp.cos(phig) + 1j * jnp.sin(phig)
         cos_gamma = expphig_cos_gamma / expphig
+        if jnp.abs(cos_gamma) > tol:
+            cos_gamma /= jnp.abs(cos_gamma)
         gamma = jnp.arccos(cos_gamma.real)
 
         # Close to zero, cannot be used later in division
