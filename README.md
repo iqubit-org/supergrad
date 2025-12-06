@@ -108,13 +108,13 @@ But the procedure can be applied to more complex systems as well.
 If this project is helpful to you in your research, the use of SuperGrad in research publications is appropriately acknowledged by citing:
 
 ```
-@misc{supergrad_2024,
-      title={SuperGrad: a differentiable simulator for superconducting processors},
-      author={Ziang Wang and Feng Wu and Hui-Hai Zhao and Xin Wan and Xiaotong Ni},
-      year={2024},
-      eprint={2406.18155},
-      archivePrefix={arXiv},
-      primaryClass={quant-ph}
+@article{supergrad_2025,
+    doi = {10.22331/q-2025-04-24-1722},
+    url = {https://doi.org/10.22331/q-2025-04-24-1722},
+    title = {Super{G}rad: a differentiable simulator for superconducting processors},
+    author = {Wang, Ziang and Wu, Feng and Zhao, Hui-Hai and Wan, Xin and Ni, Xiaotong},
+    journal = {{Quantum}},
+    issn = {2521-327X}
 }
 ```
 
