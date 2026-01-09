@@ -195,6 +195,27 @@ class SCGraph(nx.Graph):
         version = attr.get("version", 2)
         self.version = version
 
+    def __getitem__(self, item: str):
+        """Mimic a dictionary "nodes" and "edges" behavior to allow same operation as input dictionary.
+
+        Args:
+            item: "nodes" or "edges"
+
+        Returns:
+            Corresponding node or edge content
+        """
+        if item == "nodes":
+            return self.nodes
+        elif item == "edges":
+            return self.edges
+        else:
+            return super(self).__getitem__(item)
+
+
+    def get(self, item: str):
+        return self.__getitem__(item)
+
+
     @property
     def sorted_nodes(self):
         """A list contains all the nodes in deterministic order."""

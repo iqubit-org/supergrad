@@ -44,7 +44,7 @@ def convert_children_to_data_array(dic: dict, energy_scale: float) -> dict:
     """
     list_skip_key = ["id", "source", "target", "name"]
     list_fix_key = ["shared_param_mark", "delay"]
-    list_key_scale = ["strength", "ec", "ej", "el", "f"]
+    list_key_scale = ["strength", "ec", "ej", "el", "energy"]
     dic2 = {}
     for key, val in dic.items():
         if key in list_skip_key:
