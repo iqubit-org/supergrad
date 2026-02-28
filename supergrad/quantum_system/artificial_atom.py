@@ -117,38 +117,31 @@ class Fluxonium(CircuitLCJ):
         else:
             raise ValueError(f"Unknown basis {self.basis}")
 
-    def n_operator(self, **kwargs) -> jnp.ndarray:
-        """
-        Return:
-            Returns the :math:`n = - i d/d\\phi` operator in the phase basis.
-        """
-
-        if self.eigvec_in_raw_basis is None:
-            self.eigenenergies()
-        n_in_raw_basis = self.create_n()
-        n_eigenbasis = jnp.conj(self.eigvec_in_raw_basis
-                                ).T @ n_in_raw_basis @ self.eigvec_in_raw_basis
-
-        return n_eigenbasis[:self.dim, :self.dim]
-
     def phi_operator(self, **kwargs) -> jnp.ndarray:
         """
         Return:
             Returns the phi operator in the phase basis.
         """
-
-        if self.eigvec_in_raw_basis is None:
-            self.eigenenergies()
-        phi_in_raw_basis = self.create_phi()
-        phi_eigenbasis = jnp.conj(
-            self.eigvec_in_raw_basis
-        ).T @ phi_in_raw_basis @ self.eigvec_in_raw_basis
-        phi_truncated_eigenbasis = phi_eigenbasis[:self.dim, :self.dim]
+        phi_truncated_eigenbasis = super().phi_operator(**kwargs)
         if self.put_phiext_on_inductor:
             phi_truncated_eigenbasis += jnp.eye(
                 phi_truncated_eigenbasis.shape[0]) * self.phiext
 
         return phi_truncated_eigenbasis
+
+    def cosphi_operator(self, **kwargs) -> jnp.ndarray:
+        """
+
+        Args:
+            **kwargs:
+
+        Returns:
+            The cos(phi) operator in the truncated basis
+        """
+        if not self.put_phiext_on_inductor:
+            raise ValueError("CosPhi operator not work if phiext is not on the inductor")
+
+        return super().cosphi_operator(**kwargs)
 
 
 class Transmon(CircuitLCJ):
@@ -224,19 +217,6 @@ class Transmon(CircuitLCJ):
             m = n_square - 2 * self.ng * n1 + jnp.eye(self.ar_phi.size) * self.ng**2
             return m * (self.ec * 4)
 
-    @staticmethod
-    def get_ej_eff(ej: float, d: float, phiej: float) -> jnp.ndarray:
-        '''Computes the effective EJ from tunable transmon parameters.
-
-        Args:
-            ej: the maximum EJ of the transmon
-            d (float, optional): junction asymmetry parameter, as :math:`(E_{J2}-E_{J1})/(E_{J2}+E_{J1})`.
-            phiej: the :math:`Phi_{EJ}` in the transmon SQUID loop.
-
-        Returns:
-            the effective EJ
-        '''
-        return ej * jnp.sqrt(jnp.cos(phiej / 2.0) ** 2 + d ** 2 * jnp.sin(phiej / 2.0) ** 2)
 
     def create_v(self) -> jnp.ndarray:
         """Computes potential matrix.
@@ -266,65 +246,6 @@ class Transmon(CircuitLCJ):
             return mt + mv
         else:
             raise ValueError(f"Unknown basis {self.basis}")
-
-    def n_operator(self, **kwargs) -> jnp.ndarray:
-        """
-        Return:
-            Returns the :math:`n = - i d/d\\phi` operator in the phase basis.
-        """
-
-        if self.eigvec_in_raw_basis is None:
-            self.eigenenergies()
-        n_in_raw_basis = self.create_n()
-        n_eigenbasis = jnp.conj(self.eigvec_in_raw_basis
-                                ).T @ n_in_raw_basis @ self.eigvec_in_raw_basis
-
-        return n_eigenbasis[:self.dim, :self.dim]
-
-    def phi_operator(self, **kwargs) -> jnp.ndarray:
-        """
-        Return:
-            Returns the phi operator in the phase basis.
-        """
-
-        if self.eigvec_in_raw_basis is None:
-            self.eigenenergies()
-        phi_in_raw_basis = self.create_phi()
-        phi_eigenbasis = jnp.conj(
-            self.eigvec_in_raw_basis
-        ).T @ phi_in_raw_basis @ self.eigvec_in_raw_basis
-        phi_truncated_eigenbasis = phi_eigenbasis[:self.dim, :self.dim]
-
-        return phi_truncated_eigenbasis
-
-    def cosphi_operator(self, **kwargs) -> jnp.array:
-        """
-
-        Args:
-            **kwargs:
-
-        Returns:
-            The cos(phi) operator in the truncated basis
-        """
-        if self.eigvec_in_raw_basis is None:
-            self.eigenenergies()
-        cosphi_in_raw_basis = self.create_cosphi()
-        cosphi_eigenbasis = jnp.conj(
-            self.eigvec_in_raw_basis
-        ).T @ cosphi_in_raw_basis @ self.eigvec_in_raw_basis
-        cosphi_truncated_eigenbasis = cosphi_eigenbasis[:self.dim, :self.dim]
-        return cosphi_truncated_eigenbasis
-
-    def phiej_coef_cosphi_operator(self, phiej) -> jnp.array:
-        """Convert the phiej Value to be a coefficient of cosphi operator.
-
-        Args:
-            phiej: the Phiej value of the tunable transmon
-
-        Returns:
-            the coefficient of the cosphi operator
-        """
-        return -self.get_ej_eff(self.ej, self.d, self.phiej + phiej) + self.get_ej_eff(self.ej, self.d, self.phiej)
 
 
 
@@ -393,3 +314,11 @@ class Resonator(QuantumSystem):
     def annihilation_operator(self, **kwargs) -> jnp.ndarray:
         """Returns the creation operator"""
         return destroy(self.dim)
+
+    def n_operator(self, **kwargs) -> jnp.ndarray:
+        """Return the charge operator"""
+        return create(self.dim) + destroy(self.dim)
+
+    def phi_operator(self, **kwargs) -> jnp.ndarray:
+        """Return the phase operator"""
+        return 1j * (create(self.dim) - destroy(self.dim))
